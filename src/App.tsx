@@ -7,7 +7,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 import VideoPlayer from "./components/VideoPlayer";
 import SidePanel from "./components/SidePanel";
 import CaptionOverlay from "./components/CaptionOverlay";
-import { loadModels, setSource } from "./transcription";
+import ExportBar from "./components/ExportBar";
+import { loadModels, setSource, transcript } from "./transcription";
 
 const VIDEO_EXTENSIONS = ["mp4", "mov", "mkv", "webm", "avi", "m4v"];
 
@@ -180,6 +181,10 @@ export default function App() {
           )}
         </Show>
       </main>
+
+      <Show when={video() && transcript.segments.length > 0}>
+        <ExportBar videoName={video()!.name} />
+      </Show>
 
       <Show when={dragging()}>
         <div class="drag-overlay">

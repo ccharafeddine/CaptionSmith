@@ -316,5 +316,52 @@ STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
   If cqh/position looks off with letterboxed video, note it — the burn-in
   (Step 9) places captions via libass and is the authoritative output.
 
-NEXT: Step 8 (sidecar export: serialize the edited transcript to .srt/.vtt/.ass
-at a Save path; default <Documents>/CaptionSmith/Exports/<stem>.srt).
+
+--- Step 8: Sidecar subtitle export (.srt / .vtt / .ass) ---------------------
+DONE (code complete + validated; needs live-window test for the Save dialog).
+- src-tauri/src/subtitles.rs:
+    * to_srt / to_vtt: plain (timestamps + edited transcript text). SRT uses
+      HH:MM:SS,mmm; VTT has the WEBVTT header and HH:MM:SS.mmm.
+    * to_ass(segments, style, play_w, play_h): full styled ASS. Maps the caption
+      style -> V4+ Style (font, size = %*PlayResY, colours as &H00BBGGRR, bold
+      from weight, BorderStyle 3 box vs 1 outline, Outline/Shadow, Alignment 2
+      with MarginV from position%, MarginL/R from safe margin). Word-highlight
+      preset emits per-word karaoke events (whole line shown, only the current
+      word coloured) so it matches the preview. Text is sanitized (\{ \} and
+      backslash) so transcript text can't inject override tags (security).
+    * to_ass is SHARED with Step 9 burn-in (sidecar writes to user path; burn-in
+      will write a temp .ass for ffmpeg).
+    * export_sidecar(segments, style, format, path) command writes the file
+      (creates parent dirs). Segment/Word gained Deserialize.
+- lib.rs: ensure_export_dir command creates+returns <Documents>/CaptionSmith/
+  Exports. capabilities: added dialog:allow-save.
+- Frontend: src/components/ExportBar.tsx — a footer bar (shown once a transcript
+  exists) with a format picker (SRT/VTT/ASS) + "Export file". Uses the save
+  dialog defaulting to the Exports folder with <source_stem>.<ext> prefilled,
+  then invokes export_sidecar. Shows the saved path or an error. FONTS switched
+  to plain family names (Syne/Arial/Impact/Georgia) so the ASS Fontname is clean
+  (overlay wraps them with a fallback for CSS).
+
+VERIFIED:
+- cargo clippy clean. cargo test --lib => 9 passed (added srt/vtt/ass shape,
+  ASS override-brace escaping, colour conversion). npm run build clean.
+- Validated the ASS through ffmpeg's ass filter: with a RELATIVE path it parses
+  and renders cleanly (exit 0) — styles + karaoke overrides accepted by libass.
+
+KEY FINDING FOR STEP 9 (burn-in): ffmpeg's filtergraph parser treats the drive
+colon in an absolute Windows path (ass=C:/...) as an option separator, and
+backslash-escaping it is fragile. ROBUST FIX (confirmed): write the temp .ass to
+a temp dir, set the ffmpeg child's current_dir() to that dir, and reference the
+file by bare filename (-vf ass=<name>.ass) — no colon, no escaping. The input
+video + output stay absolute (-i / output are normal args, not filtergraph).
+
+STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
+- After transcribing, use the export bar: pick SRT/VTT/ASS, confirm the Save
+  dialog opens at <Documents>/CaptionSmith/Exports with <stem>.<ext> prefilled,
+  save, and open the file to check timestamps/text.
+- Export an ASS on the Word highlight preset (with word timing) and confirm the
+  karaoke tags look right; open it in a player (e.g. VLC) over the video.
+
+NEXT: Step 9 (burn-in export: build temp .ass from segments+style, run the
+libx264 re-encode with the ass filter [via cwd+relative name], time= progress
+bar + Cancel, output <stem>_captioned.mp4).

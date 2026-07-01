@@ -927,6 +927,53 @@ body {
   text-overflow: ellipsis;
 }
 
+/* ---------- Export bar ---------- */
+
+.export-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-top: 1px solid var(--border);
+  background: var(--bg-base);
+}
+
+.export-group {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex-shrink: 0;
+}
+
+.export-label {
+  font-size: 13px;
+  color: var(--fg-2);
+}
+
+.export-format {
+  flex: 0 0 auto;
+  width: 76px;
+}
+
+.export-status {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.export-saved {
+  color: var(--fg-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.export-error {
+  color: var(--danger);
+}
+
 /* ---------- Drag overlay ---------- */
 
 .drag-overlay {

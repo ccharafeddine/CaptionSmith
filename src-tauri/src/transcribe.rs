@@ -14,7 +14,7 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::ffmpeg;
@@ -29,20 +29,20 @@ pub struct TranscribeState {
     cancel: Cancellation,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Word {
-    start: f64,
-    end: f64,
-    text: String,
+    pub start: f64,
+    pub end: f64,
+    pub text: String,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Segment {
-    start: f64,
-    end: f64,
-    text: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    words: Option<Vec<Word>>,
+    pub start: f64,
+    pub end: f64,
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub words: Option<Vec<Word>>,
 }
 
 #[derive(Clone, Serialize)]

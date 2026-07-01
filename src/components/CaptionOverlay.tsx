@@ -55,7 +55,7 @@ export default function CaptionOverlay(props: CaptionOverlayProps) {
       top: `${style.position}%`,
       left: `${style.safeMargin}%`,
       right: `${style.safeMargin}%`,
-      "font-family": style.font,
+      "font-family": `"${style.font}", sans-serif`,
       "font-size": `${style.fontSizePct}cqh`,
       "font-weight": String(style.weight),
       color: style.primaryColor,

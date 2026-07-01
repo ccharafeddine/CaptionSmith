@@ -22,11 +22,13 @@ export type CaptionStyle = {
   safeMargin: number; // % horizontal margin
 };
 
+// Plain family names: used verbatim as the ASS Fontname for burn-in, and
+// wrapped with a fallback for the CSS preview.
 export const FONTS = [
-  { label: "Syne", value: '"Syne", sans-serif' },
-  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
-  { label: "Impact", value: "Impact, Haettenschweiler, sans-serif" },
-  { label: "Georgia", value: "Georgia, 'Times New Roman', serif" },
+  { label: "Syne", value: "Syne" },
+  { label: "Arial", value: "Arial" },
+  { label: "Impact", value: "Impact" },
+  { label: "Georgia", value: "Georgia" },
 ];
 
 const SYNE = FONTS[0].value;

@@ -63,5 +63,53 @@ STILL NEEDS LIVE-WINDOW TESTING (run `npm run tauri dev`):
 - Confirm Space play/pause and seekbar scrub feel right.
 - Sanity-check the dark theme + Syne font render on this Windows box.
 
-NEXT: Step 3 (URL import via bundled yt-dlp) — paused here per request so the
-dev window can be exercised first. Do NOT start transcription/export yet.
+
+--- Step 3: URL import (bundled yt-dlp) --------------------------------------
+DONE (code complete + CLI-validated; needs live-window test — see below).
+- Bundled yt-dlp as a Tauri externalBin sidecar:
+    * scripts/fetch-ytdlp.sh downloads yt-dlp into src-tauri/binaries/ with the
+      per-target-triple names Tauri expects (Windows .exe, macOS universal +
+      per-arch, Linux for local dev). Refresh before each release.
+    * tauri.conf.json bundle.externalBin = ["binaries/yt-dlp"].
+    * Fetched the Windows binary locally (yt-dlp 2026.06.09) so the dev window
+      works now. binaries/ is gitignored — not committed.
+- Sidecar path resolution WITHOUT the shell plugin (src-tauri/src/sidecar.rs):
+  checks next-to-exe (production bundle) then src-tauri/binaries/<name>-<triple>
+  (dev). Triple baked in via build.rs (cargo:rustc-env=TARGET_TRIPLE from TARGET).
+  Reason: the shell plugin inserts \n between stdout chunks (#3090) and would
+  corrupt the progress stream — CLAUDE.md gotcha. We spawn std::process::Command.
+- src-tauri/src/url_import.rs — download_url + cancel_download commands:
+    * Spawns yt-dlp via std::process::Command (CREATE_NO_WINDOW on Windows),
+      downloads to a unique OS temp dir (captionsmith-dl-<pid>-<n>/source.%(ext)s),
+      returns the produced file path as the local source (read in place, per the
+      zero-import constraint; temp file, deleted on cancel/failure).
+    * Format "best[ext=mp4]/best" — a single pre-muxed stream, so the download
+      step does NOT depend on ffmpeg merging (that comes in Step 4).
+    * Streams progress: reads BOTH stdout and stderr, parses "[download] NN.N%"
+      via parse_percent, emits "download-progress" { percent, line }.
+    * Cancellable: AtomicBool cancel flag + child stashed in managed
+      DownloadState; cancel_download flips the flag and kills the child. Mirrors
+      ClipSmith's cancel race (adapted to std threads since std::process is sync).
+- Frontend (src/App.tsx + app.css): URL bar under the dropzone (Enter or Import),
+  a downloading panel with a gradient progress bar (indeterminate until the first
+  percent), the live yt-dlp status line, and a Cancel button. Esc cancels an
+  in-flight import. On success the temp file loads into the same player as a
+  local file. "cancelled" is handled quietly (not shown as an error).
+
+VERIFIED:
+- npm run build (tsc + vite) => clean.
+- cargo clippy => clean, 0 warnings.
+- yt-dlp binary runs (--version 2026.06.09).
+- Ran the EXACT command the Rust issues, end-to-end, against a tiny public mp4:
+  produced source.mp4 and emitted the "[download] 33.1% ..." lines parse_percent
+  is written for. High confidence in the pipeline.
+
+STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
+- Paste a real (e.g. YouTube) URL and confirm the progress bar advances and the
+  video loads + plays afterward.
+- Confirm Cancel (button and Esc) stops the download promptly and cleans up.
+- Confirm a bad URL surfaces yt-dlp's ERROR line in the UI, not a raw panic.
+- Confirm Tauri dev finds the externalBin sidecar for this triple.
+
+NEXT: Step 4 (Rust audio-extract command: ffmpeg -> 16kHz mono WAV in temp).
+Paused here per the run-after-each-step cadence. Do NOT start transcription yet.

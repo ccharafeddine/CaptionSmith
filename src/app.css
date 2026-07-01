@@ -105,7 +105,15 @@ body {
   padding: var(--s4);
 }
 
-/* ---------- Dropzone (empty state) ---------- */
+/* ---------- Empty state ---------- */
+
+.empty {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
 
 .dropzone {
   flex: 1;
@@ -163,9 +171,125 @@ body {
 }
 
 .dropzone-error {
-  margin: var(--s3) 0 0;
+  margin: 0;
   font-size: 13px;
   color: var(--danger);
+  text-align: center;
+}
+
+/* ---------- URL import bar ---------- */
+
+.url-bar {
+  display: flex;
+  gap: var(--s2);
+}
+
+.url-input {
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  padding: var(--s3) var(--s3);
+  outline: none;
+  transition: border-color 0.12s ease;
+  user-select: text;
+}
+
+.url-input::placeholder {
+  color: var(--fg-3);
+}
+
+.url-input:focus {
+  border-color: var(--accent);
+}
+
+.primary-btn {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-control);
+  padding: var(--s3) var(--s5);
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+
+.primary-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* ---------- Downloading panel ---------- */
+
+.downloading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s4);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-panel);
+  background: var(--bg-panel);
+  padding: var(--s6);
+}
+
+.downloading-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.progress-track {
+  width: min(440px, 80%);
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-control);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--grad);
+  border-radius: 3px;
+  transition: width 0.15s ease;
+}
+
+.progress-fill.indeterminate {
+  width: 35%;
+  animation: indeterminate 1.1s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(340%);
+  }
+}
+
+.downloading-meta {
+  margin: 0;
+  display: flex;
+  gap: var(--s3);
+  align-items: baseline;
+  max-width: min(440px, 80%);
+  font-size: 12px;
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.downloading-line {
+  color: var(--fg-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- Player ---------- */

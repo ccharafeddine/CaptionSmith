@@ -10,6 +10,7 @@ import {
 import { produce } from "solid-js/store";
 
 import { formatTime, formatPrecise } from "../format";
+import { isFormControl } from "../keys";
 import { style } from "../style";
 import {
   cancelTranscribe,
@@ -155,21 +156,20 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
     setSelected(i);
   };
 
-  // Enter edits the segment at the playhead; Esc cancels an in-flight run.
+  // Enter edits the segment at the playhead; Esc cancels an in-flight run or
+  // dismisses a notice panel back to idle.
   const onKeyDown = (e: KeyboardEvent) => {
-    const target = e.target as HTMLElement | null;
-    const typing =
-      target &&
-      (target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable);
-
-    if (e.key === "Escape" && isBusy()) {
-      e.preventDefault();
-      void cancelTranscribe();
+    if (e.key === "Escape") {
+      if (isBusy()) {
+        e.preventDefault();
+        void cancelTranscribe();
+      } else if (status() === "model-missing" || status() === "error") {
+        e.preventDefault();
+        setStatus("idle");
+      }
       return;
     }
-    if (e.key === "Enter" && !typing && status() === "done") {
+    if (e.key === "Enter" && status() === "done" && !isFormControl(e.target)) {
       const i = activeIndex();
       if (i >= 0) {
         e.preventDefault();

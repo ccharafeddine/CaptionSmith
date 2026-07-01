@@ -406,6 +406,38 @@ STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
   karaoke burn matches the preview reasonably (libass is authoritative).
 - Confirm no temp WAV/ASS/work dirs remain in OS temp afterward.
 
-NEXT: Step 10 (keyboard shortcuts: Space play/pause, arrows frame-step, Enter
-edit segment at playhead, Esc cancel export/close dialog) — several already
-wired opportunistically; Step 10 completes + audits them.
+
+--- Step 10: Keyboard shortcuts ----------------------------------------------
+DONE (code complete; needs live-window test). Small step — several shortcuts
+were wired opportunistically in earlier steps; this completes + audits them.
+- src/keys.ts: shared isFormControl(target) guard (INPUT/TEXTAREA/SELECT/BUTTON/
+  contentEditable) so global shortcuts never hijack typing, sliders, selects, or
+  button activation.
+- Full set (per spec):
+    * Space  -> play/pause            (VideoPlayer; guarded)
+    * <- / -> -> step one frame        (VideoPlayer; NEW — pauses then steps
+      +/- 1/30s. No API exposes real fps; 1/30 is fine for caption-timing review.
+      Programmatic currentTime fires timeupdate -> transcript playhead stays in
+      sync.)
+    * Enter  -> edit the segment at the playhead (TranscriptPanel; only when a
+      transcript is shown and focus isn't in a form control)
+    * Esc    -> cancel the running export/transcription, or dismiss a notice:
+        - cancel transcription (TranscriptPanel), cancel burn-in (ExportBar),
+          cancel URL import (App) — each guards on its own busy state, so exactly
+          one acts and there's no double-cancel;
+        - dismiss the model-missing / error notice back to idle (TranscriptPanel).
+- Audited the pre-existing handlers to the shared guard; Space/arrows now also
+  ignore focused buttons/selects (previously only text inputs).
+
+VERIFIED:
+- npm run build (tsc noUnusedLocals + vite) => clean. No Rust changed.
+
+STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
+- Space toggles play/pause; <-/-> step a frame (paused) and the active
+  transcript segment tracks; Enter (focus outside a field) opens the segment at
+  the playhead; Esc cancels a burn/transcription/import and closes a notice.
+- Confirm shortcuts do NOT fire while typing in the transcript textarea, the URL
+  field, or when a select/slider is focused.
+
+NEXT: Step 11 (theming: dark-first via shared tokens; optional light variant via
+prefers-color-scheme). Then 12 (release workflow) and 13 (README/screenshots).

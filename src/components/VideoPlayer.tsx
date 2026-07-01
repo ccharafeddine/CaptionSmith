@@ -1,5 +1,10 @@
 import { createSignal, type JSX, onCleanup, onMount, Show } from "solid-js";
 import { formatTime } from "../format";
+import { isFormControl } from "../keys";
+
+// No API exposes a video's real frame rate, so step by a sensible default.
+// Fine for reviewing caption timing; exact frame accuracy isn't required.
+const FRAME = 1 / 30;
 
 export type PlayerControls = {
   /** Seek the player to `seconds` (used by the transcript panel). */
@@ -44,19 +49,29 @@ export default function VideoPlayer(props: VideoPlayerProps) {
     if (videoEl) videoEl.currentTime = value;
   };
 
-  // Space toggles play/pause unless the user is typing in a field.
+  // Step one frame; stepping implies paused review, so pause first.
+  const stepFrame = (dir: number) => {
+    if (!videoEl) return;
+    videoEl.pause();
+    const dur = videoEl.duration || Infinity;
+    const next = Math.min(Math.max(videoEl.currentTime + dir * FRAME, 0), dur);
+    videoEl.currentTime = next;
+    setCurrent(next);
+  };
+
+  // Media shortcuts, ignored while a form control is focused.
   const onKeyDown = (e: KeyboardEvent) => {
-    const target = e.target as HTMLElement | null;
-    const typing =
-      target &&
-      (target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable);
-    if (typing) return;
+    if (isFormControl(e.target)) return;
 
     if (e.code === "Space") {
       e.preventDefault();
       togglePlay();
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      stepFrame(-1);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      stepFrame(1);
     }
   };
 

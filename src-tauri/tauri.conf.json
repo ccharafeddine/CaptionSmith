@@ -32,7 +32,12 @@
   "bundle": {
     "active": true,
     "targets": ["dmg", "msi", "nsis"],
-    "externalBin": ["binaries/yt-dlp", "binaries/ffmpeg", "binaries/ffprobe"],
+    "externalBin": [
+      "binaries/yt-dlp",
+      "binaries/ffmpeg",
+      "binaries/ffprobe",
+      "binaries/whisper-cli"
+    ],
     "resources": {
       "resources/models/ggml-base.en.bin": "models/ggml-base.en.bin",
       "resources/fonts/Syne.ttf": "fonts/Syne.ttf"

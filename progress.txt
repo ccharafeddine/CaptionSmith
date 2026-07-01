@@ -464,6 +464,45 @@ STILL NEEDS LIVE-WINDOW TESTING:
   good contrast (panels, borders, transcript, controls, wordmark), and back to
   dark. Test on both Windows and macOS (spec).
 
-NEXT: Step 12 (release workflow: .github/workflows/release.yml via tauri-action
-on v* tag; fetch/build all sidecars incl. static whisper-cli; universal macOS
-.dmg + Windows .msi). Then 13 (README + screenshots).
+
+--- Step 12: Release workflow ------------------------------------------------
+DONE (code complete; MUST be validated by a real tag-push — the source builds
+can't run on this dev machine, no compiler/cmake here).
+- Finally wired the STATIC whisper-cli (deferred since Step 5):
+    * scripts/fetch-whisper.sh builds whisper-cli from source via CMake with
+      -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF (single portable binary, runs on
+      any CPU, no sibling DLLs) and downloads ggml-base.en.bin. Names outputs
+      whisper-cli-<triple>[.exe] (macOS: universal via OSX_ARCHITECTURES
+      arm64;x86_64 + per-arch copies).
+    * Added binaries/whisper-cli to tauri.conf externalBin.
+    * Made sidecar::resolve DEBUG-AWARE: debug prefers src-tauri/binaries/ (the
+      local dynamic whisper-cli + its DLLs live there), release prefers
+      next-to-exe (CI's static binary). This keeps local `tauri dev` working with
+      the dynamic prebuilt while release uses the static one. clippy clean.
+- .github/workflows/release.yml (tauri-apps/tauri-action, on v* tags):
+    * matrix: macos-14 (universal-apple-darwin, rust targets aarch64+x86_64,
+      brew install nasm/pkg-config/cmake) and windows-latest.
+    * npm ci, then fetch/build ALL sidecars before bundling:
+      fetch-ffmpeg.sh (Win: BtbN prebuilt; mac: source build via
+      build-ffmpeg-macos.sh), fetch-ytdlp.sh, fetch-whisper.sh.
+    * tauri-action creates a DRAFT release named "CaptionSmith <tag>" with the
+      .dmg + .msi attached. permissions: contents:write.
+    * YAML validated (parses).
+
+VERIFIED (locally):
+- cargo clippy clean. YAML parses. npm build already clean.
+
+STILL NEEDS CI VALIDATION (push a test tag, e.g. v0.0.1-test, watch Actions):
+- The three source/prebuilt sidecar fetches all succeed on both runners. HIGHEST
+  RISK: (1) the macOS from-source FFmpeg build (build-ffmpeg-macos.sh, long +
+  unverified) and (2) the universal macOS whisper build. If either fails, iterate
+  on the scripts. The Windows path (BtbN FFmpeg + MSVC whisper build) is lower
+  risk.
+- tauri-action produces the .dmg (universal) and .msi and attaches them to a
+  draft release; install each and smoke-test.
+NOTE: a LOCAL Windows `tauri build` would bundle the DYNAMIC dev whisper-cli
+(missing its DLLs in the prod layout) and be broken — CI's static build is the
+supported release path. Documented for future me.
+
+NEXT: Step 13 (README polish + light/dark screenshots; document that burn-in is
+a re-encode). Final step.

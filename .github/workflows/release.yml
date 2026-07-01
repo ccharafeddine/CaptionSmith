@@ -1,0 +1,77 @@
+name: Release
+
+# Build the signed-less installers on a version tag and attach them to a draft
+# GitHub release. Universal macOS .dmg on macos-14 (Apple Silicon runner, cross
+# to x86_64) and a Windows .msi on windows-latest. Avoids the deprecated
+# macos-13 Intel runner.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-14
+            args: "--target universal-apple-darwin"
+            rust-targets: "aarch64-apple-darwin,x86_64-apple-darwin"
+          - platform: windows-latest
+            args: ""
+            rust-targets: ""
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      # macOS builds FFmpeg + whisper from source, so it needs nasm/pkg-config
+      # and CMake. windows-latest already ships CMake + MSVC.
+      - name: Install macOS build deps
+        if: matrix.platform == 'macos-14'
+        run: brew install nasm pkg-config cmake
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # Provide the bundled sidecars BEFORE the Tauri bundle step:
+      #   FFmpeg + ffprobe (GPL, libx264 + libass), yt-dlp, and a static
+      #   whisper-cli + the default ggml model.
+      - name: Fetch / build sidecars
+        shell: bash
+        run: |
+          bash scripts/fetch-ffmpeg.sh
+          bash scripts/fetch-ytdlp.sh
+          bash scripts/fetch-whisper.sh
+
+      - name: Build app + draft release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "CaptionSmith ${{ github.ref_name }}"
+          releaseBody: "See the assets below to download and install."
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

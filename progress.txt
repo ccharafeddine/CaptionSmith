@@ -152,6 +152,76 @@ STILL NEEDS LIVE-WINDOW TESTING:
 - Nothing user-facing for Step 4 alone. Will be exercised via the transcribe
   flow in Step 5 (extract -> whisper), where extract-progress feeds the UI.
 
-NEXT: Step 5 (whisper.cpp sidecar + bundled ggml-base.en model; transcribe
-command: extract WAV -> whisper -> parsed segments, cancellable, progress).
-Paused here per the run-after-each-step cadence.
+
+--- Step 5: whisper.cpp transcription ----------------------------------------
+DONE (code complete + CLI-validated; needs live-window test).
+- whisper-cli sidecar + default model:
+    * Local dev uses the prebuilt CPU build (whisper.cpp v1.9.1,
+      whisper-bin-x64) — a DYNAMIC build, so whisper-cli.exe + its DLLs
+      (whisper.dll, ggml*.dll, ggml-cpu-*.dll) all live in src-tauri/binaries/;
+      Windows finds the DLLs next to the exe when spawned. (gitignored)
+    * ggml-base.en.bin (148MB) downloaded to src-tauri/resources/models/ and
+      bundled via tauri.conf.json bundle.resources -> models/ggml-base.en.bin.
+      (gitignored)
+    * IMPORTANT: whisper-cli is deliberately NOT in externalBin yet. The dev
+      binary is dynamic (needs sibling DLLs); externalBin copies a lone exe next
+      to the app and would break DLL lookup. Step 12 builds a STATIC,
+      self-contained whisper-cli from source (scripts/fetch-whisper.sh, CMake
+      -DBUILD_SHARED_LIBS=OFF) and adds it to externalBin then. The sidecar
+      resolver already finds the dev binary in binaries/ (whisper-cli not being
+      copied next to the debug exe is exactly why the binaries/ fallback wins).
+- Flags taken from `whisper-cli --help` (v1.9.1), not memorised:
+    -m <model> -f <wav> -of <base> (-oj | -ojf) -pp -t N -l LANG [-tr]
+  Verified the JSON shape empirically on jfk.wav:
+    transcription[] with offsets.from/to in MILLISECONDS + text; -ojf adds a
+    tokens[] array (leading space marks word starts; specials are [_BEG_] etc).
+  Progress on stderr: "whisper_print_progress_callback: progress = N%".
+- src-tauri/src/proc.rs: reusable Cancellation (AtomicBool flag + current child;
+  cancel() kills whichever child is registered). Replaces the ad-hoc race; one
+  handle guards the whole extract->whisper sequence.
+- src-tauri/src/ffmpeg.rs: extract_to_wav now takes &Cancellation and registers
+  its child, so a cancel during the extract phase kills ffmpeg too.
+- src-tauri/src/transcribe.rs:
+    * transcribe(src, language, translate, word_timestamps, model) command:
+      resolve whisper + model -> extract WAV (Phase 1, emits extract-progress)
+      -> run whisper (Phase 2, emits transcribe-progress) -> parse JSON ->
+      return Vec<Segment { start, end, text, words? }>. Deletes the WAV + JSON
+      on every exit path (zero persistent intermediates, per spec).
+    * word_timestamps=true switches -oj -> -ojf and reconstructs words from
+      sub-word tokens (new word on leading space; punctuation folds in; [_..]
+      specials skipped). Only requested for karaoke styles (slower).
+    * Model resolution: user model name in <AppData>/CaptionSmith/models, else
+      the bundled default (resource dir in prod, source tree in dev). Missing ->
+      Err("MODEL_NOT_FOUND|<dir>") so the UI shows a clear pointer, never
+      "fixes" the environment itself.
+    * cancel_transcribe command; managed TranscribeState holds the Cancellation.
+    * Unit tests: progress parsing, plain-segment parsing, word reconstruction.
+- Frontend:
+    * Two-column workspace: player (left) + TranscriptPanel (right, 360px).
+    * VideoPlayer exposes an imperative seek via onReady; App wires it so
+      clicking a transcript segment seeks the player.
+    * TranscriptPanel: Transcribe button -> two-phase progress ("Extracting
+      audio" then "Transcribing", % bar) -> segment list (time + text, click to
+      seek). Handles cancel (button + Esc), model-missing (shows the models
+      folder path), and error (message + Try again). Resets when the video
+      changes. Language/translate/word-timestamps params are wired to defaults
+      now; their UI controls come in Steps 6-7.
+
+VERIFIED:
+- cargo clippy => clean. cargo test --lib => 5 passed (ffmpeg + transcribe).
+- npm run build => clean.
+- whisper-cli runs from binaries/ (DLLs resolve); transcribed jfk.wav and the
+  emitted JSON matches parse_segments/words_from_tokens (unit-tested on the
+  real shape). Progress line format confirmed live ("progress = 100%").
+- ffmpeg extract already verified in Step 4 (pcm_s16le/16000/mono).
+
+STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
+- Load a real video with speech -> Transcribe -> watch both progress phases,
+  then the segment list; click a segment and confirm the player seeks.
+- Cancel mid-transcribe (button + Esc) stops promptly and returns to idle.
+- Temporarily rename resources/models to confirm the model-missing panel shows
+  the correct <AppData>/CaptionSmith/models path.
+- Confirm no leftover temp WAV/JSON in OS temp after a run.
+
+NEXT: Step 6 (editable transcript: inline edit, merge/split, nudge timing,
+delete; language picker + translate toggle). Paused here per the cadence.

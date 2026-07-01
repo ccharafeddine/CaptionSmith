@@ -5,6 +5,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import VideoPlayer from "./components/VideoPlayer";
+import TranscriptPanel from "./components/TranscriptPanel";
 
 const VIDEO_EXTENSIONS = ["mp4", "mov", "mkv", "webm", "avi", "m4v"];
 
@@ -39,6 +40,9 @@ export default function App() {
   const [importing, setImporting] = createSignal(false);
   const [percent, setPercent] = createSignal<number | null>(null);
   const [statusLine, setStatusLine] = createSignal("");
+
+  // Imperative seek handle registered by the player, driven by the transcript.
+  let playerSeek: ((seconds: number) => void) | undefined;
 
   const show = (path: string) => {
     setError(null);
@@ -152,7 +156,20 @@ export default function App() {
 
       <main class="main">
         <Show when={video()} fallback={<EmptyState />}>
-          {(v) => <VideoPlayer src={v().src} path={v().path} name={v().name} />}
+          {(v) => (
+            <div class="workspace">
+              <VideoPlayer
+                src={v().src}
+                path={v().path}
+                name={v().name}
+                onReady={(c) => (playerSeek = c.seek)}
+              />
+              <TranscriptPanel
+                videoPath={v().path}
+                onSeek={(t) => playerSeek?.(t)}
+              />
+            </div>
+          )}
         </Show>
       </main>
 

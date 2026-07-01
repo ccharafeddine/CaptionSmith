@@ -1,4 +1,10 @@
 import { createSignal, onCleanup, onMount, Show } from "solid-js";
+import { formatTime } from "../format";
+
+export type PlayerControls = {
+  /** Seek the player to `seconds` (used by the transcript panel). */
+  seek: (seconds: number) => void;
+};
 
 type VideoPlayerProps = {
   /** Asset-protocol URL produced by convertFileSrc(path). */
@@ -7,18 +13,9 @@ type VideoPlayerProps = {
   path: string;
   /** Human filename for the header. */
   name: string;
+  /** Receives an imperative controls handle once the element is mounted. */
+  onReady?: (controls: PlayerControls) => void;
 };
-
-function formatTime(seconds: number): string {
-  if (!Number.isFinite(seconds)) return "0:00";
-  const total = Math.floor(seconds);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  const mm = h > 0 ? String(m).padStart(2, "0") : String(m);
-  const ss = String(s).padStart(2, "0");
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-}
 
 export default function VideoPlayer(props: VideoPlayerProps) {
   let videoEl!: HTMLVideoElement;
@@ -61,6 +58,13 @@ export default function VideoPlayer(props: VideoPlayerProps) {
 
   onMount(() => {
     window.addEventListener("keydown", onKeyDown);
+    props.onReady?.({
+      seek: (seconds: number) => {
+        if (!videoEl) return;
+        videoEl.currentTime = seconds;
+        setCurrent(seconds);
+      },
+    });
   });
 
   onCleanup(() => {

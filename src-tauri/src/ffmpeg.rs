@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
+use crate::proc::Cancellation;
 use crate::sidecar;
 
 static AUDIO_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -69,7 +70,10 @@ fn base_command(ffmpeg: &Path) -> Command {
 /// Extract a 16 kHz mono PCM WAV for whisper. Returns the temp WAV path.
 ///
 /// `ffmpeg -i <src> -vn -ac 1 -ar 16000 -c:a pcm_s16le <tmp.wav>`
-pub fn extract_to_wav(app: &AppHandle, src: &str) -> Result<PathBuf, String> {
+///
+/// Registers the ffmpeg child with `cancel` so a cancel during this phase kills
+/// it. Returns Err("cancelled") if cancelled.
+pub fn extract_to_wav(app: &AppHandle, src: &str, cancel: &Cancellation) -> Result<PathBuf, String> {
     if !Path::new(src).exists() {
         return Err(format!("Source file not found: {src}"));
     }
@@ -92,6 +96,7 @@ pub fn extract_to_wav(app: &AppHandle, src: &str) -> Result<PathBuf, String> {
         .spawn()
         .map_err(|e| format!("Failed to start ffmpeg: {e}"))?;
     let stderr = child.stderr.take().expect("piped stderr");
+    cancel.set_child(child);
 
     let mut total: Option<f64> = None;
     let mut tail: Vec<String> = Vec::new();
@@ -112,7 +117,25 @@ pub fn extract_to_wav(app: &AppHandle, src: &str) -> Result<PathBuf, String> {
         }
     }
 
-    let status = child.wait().map_err(|e| format!("ffmpeg wait: {e}"))?;
+    let status = match cancel.take_child() {
+        Some(mut child) => {
+            if cancel.is_cancelled() {
+                let _ = child.kill();
+            }
+            child.wait().map_err(|e| format!("ffmpeg wait: {e}"))?
+        }
+        None => {
+            // cancel already killed and removed the child.
+            let _ = std::fs::remove_file(&out);
+            return Err("cancelled".into());
+        }
+    };
+
+    if cancel.is_cancelled() {
+        let _ = std::fs::remove_file(&out);
+        return Err("cancelled".into());
+    }
+
     if !status.success() {
         let _ = std::fs::remove_file(&out);
         let detail = tail
@@ -134,7 +157,8 @@ pub fn extract_to_wav(app: &AppHandle, src: &str) -> Result<PathBuf, String> {
 #[tauri::command]
 pub async fn extract_audio(app: AppHandle, src: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        extract_to_wav(&app, &src).map(|p| p.to_string_lossy().into_owned())
+        let cancel = Cancellation::default();
+        extract_to_wav(&app, &src, &cancel).map(|p| p.to_string_lossy().into_owned())
     })
     .await
     .map_err(|e| format!("task join: {e}"))?

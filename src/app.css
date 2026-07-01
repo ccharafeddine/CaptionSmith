@@ -312,9 +312,9 @@ body {
   gap: var(--s3);
 }
 
-/* ---------- Transcript panel ---------- */
+/* ---------- Side panel (tabbed: transcript / style) ---------- */
 
-.transcript-panel {
+.side-panel {
   width: 360px;
   flex-shrink: 0;
   display: flex;
@@ -325,26 +325,46 @@ body {
   overflow: hidden;
 }
 
-.panel-head {
+.tabs {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: var(--s3) var(--s4);
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
-.panel-title {
+.tab {
+  flex: 1;
+  padding: var(--s3);
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 14px;
-}
-
-.panel-count {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--fg-3);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
 }
 
-.panel-body {
+.tab:hover {
+  color: var(--fg-2);
+}
+
+.tab.active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+
+.side-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.side-body.hidden {
+  display: none;
+}
+
+.panel-content {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -656,7 +676,182 @@ body {
   text-align: center;
 }
 
+/* ---------- Caption overlay (live preview over the video) ---------- */
+
+.caption-overlay {
+  position: absolute;
+  inset: 0;
+  container-type: size;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.caption-block {
+  position: absolute;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15em;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.caption-line {
+  display: inline;
+}
+
+.caption-line.box {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 0.08em 0.35em;
+  border-radius: 0.12em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.caption-word {
+  transition: color 0.05s linear;
+}
+
+.caption-word.active {
+  /* color set inline from the style's highlight color */
+}
+
+/* ---------- Style panel ---------- */
+
+.style-panel {
+  overflow: hidden;
+}
+
+.style-scroll {
+  overflow-y: auto;
+  padding: var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+.style-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.style-heading {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.preset-grid {
+  display: flex;
+  gap: var(--s2);
+}
+
+.preset-btn {
+  flex: 1;
+  padding: var(--s2) var(--s1);
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--fg-2);
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+
+.preset-btn:hover {
+  color: var(--fg);
+}
+
+.preset-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.word-cta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3);
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+}
+
+.slider-row {
+  gap: var(--s2);
+}
+
+.slider {
+  flex: 1;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-control);
+  outline: none;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-panel);
+  cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-panel);
+  cursor: pointer;
+}
+
+.slider-val {
+  font-size: 12px;
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
+  text-align: right;
+}
+
+.color {
+  width: 40px;
+  height: 26px;
+  padding: 0;
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  cursor: pointer;
+}
+
+.color::-webkit-color-swatch-wrapper {
+  padding: 3px;
+}
+
+.color::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.style-footnote {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+
 .player-stage {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;

@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createSignal, type JSX, onCleanup, onMount, Show } from "solid-js";
 import { formatTime } from "../format";
 
 export type PlayerControls = {
@@ -17,6 +17,8 @@ type VideoPlayerProps = {
   onReady?: (controls: PlayerControls) => void;
   /** Fires on playback time updates (drives transcript playhead sync). */
   onTime?: (seconds: number) => void;
+  /** Overlay rendered inside the video stage (the caption preview). */
+  children?: JSX.Element;
 };
 
 export default function VideoPlayer(props: VideoPlayerProps) {
@@ -91,6 +93,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
           onEnded={() => setPlaying(false)}
           onClick={togglePlay}
         />
+        {props.children}
       </div>
 
       <div class="player-controls">

@@ -271,6 +271,50 @@ STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
 - Drop a multilingual ggml model in <AppData>/CaptionSmith/models, reopen: it
   appears in the Model picker and unlocks Language + Translate.
 
-NEXT: Step 7 (caption styles + live preview: Bottom bar / Bold social / Word
-highlight; font/size/color/outline/position/words-per-line/UPPERCASE/margin;
-HTML preview over the player; request word timestamps lazily for karaoke).
+
+--- Step 7: Caption styles + live preview ------------------------------------
+DONE (code complete; needs live-window test). Frontend-only — the backend
+already supported word_timestamps from Step 5.
+- Refactor: lifted transcription state into a shared module so the caption
+  overlay, style panel, and transcript editor share ONE source of truth:
+    * src/transcription.ts — segments store + status/percent/models/lang/
+      translate signals + runTranscribe(wordTimestamps)/cancel/setSource/
+      loadModels. TranscriptPanel now consumes this instead of local state; App
+      calls setSource() on load and loadModels() once.
+    * src/style.ts — CaptionStyle store + three presets + applyPreset + FONTS.
+- Live preview (src/components/CaptionOverlay.tsx): absolutely positioned over
+  the video stage (VideoPlayer now renders children inside .player-stage).
+  Picks the active segment by playhead, chunks text into lines by words/line,
+  applies font/size(cqh)/weight/color/outline(-webkit-text-stroke + paint-order)
+  /shadow/box/position/margin/UPPERCASE. Word-highlight colors the active word
+  by playhead time. Preview is an HTML approximation (footnote says so; libass
+  burn-in is authoritative).
+- Three presets: Bottom bar (boxed subtitle), Bold social (big, heavy, thick
+  outline, no box, UPPERCASE), Word highlight (karaoke; active word pops).
+- src/components/StylePanel.tsx: preset buttons + tight control set — font,
+  size, primary color, (highlight color for karaoke), UPPERCASE, outline,
+  shadow, box, position, words/line, safe margin. Word highlight requires
+  word-level timings: if the current transcript lacks them, a CTA offers
+  "Re-transcribe with word timing" -> runTranscribe(true) (lazy, only when the
+  style is chosen). Picking Word highlight before the first transcribe makes
+  the main Transcribe button request words too.
+- src/components/SidePanel.tsx: the right panel is now tabbed (Transcript |
+  Style); both stay mounted so switching preserves state. The overlay is always
+  live over the player regardless of tab.
+
+VERIFIED:
+- npm run build (tsc noUnusedLocals + vite) => clean. No Rust changed.
+
+STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
+- Transcribe, then scrub/play: captions appear over the video and track the
+  playhead.
+- Switch presets; tweak font/size/color/outline/shadow/box/position/words-per-
+  line/UPPERCASE/margin and watch the preview update.
+- Word highlight: use the CTA to fetch word timing, then confirm the active
+  word pops in sync during playback.
+- Sanity-check cqh font scaling and caption position on this webview (WebView2).
+  If cqh/position looks off with letterboxed video, note it — the burn-in
+  (Step 9) places captions via libass and is the authoritative output.
+
+NEXT: Step 8 (sidecar export: serialize the edited transcript to .srt/.vtt/.ass
+at a Save path; default <Documents>/CaptionSmith/Exports/<stem>.srt).

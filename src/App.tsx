@@ -5,7 +5,9 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import VideoPlayer from "./components/VideoPlayer";
-import TranscriptPanel from "./components/TranscriptPanel";
+import SidePanel from "./components/SidePanel";
+import CaptionOverlay from "./components/CaptionOverlay";
+import { loadModels, setSource } from "./transcription";
 
 const VIDEO_EXTENSIONS = ["mp4", "mov", "mkv", "webm", "avi", "m4v"];
 
@@ -48,6 +50,7 @@ export default function App() {
   const show = (path: string) => {
     setError(null);
     setVideo({ path, src: convertFileSrc(path), name: basename(path) });
+    setSource(path); // reset the shared transcript for the new source
   };
 
   const openPicked = (path: string) => {
@@ -122,6 +125,7 @@ export default function App() {
 
   onMount(async () => {
     window.addEventListener("keydown", onKeyDown);
+    void loadModels();
 
     // Tauri's native drag-drop; HTML5 dnd is suppressed by the webview.
     const unlisten = await getCurrentWebview().onDragDropEvent((event) => {
@@ -165,9 +169,10 @@ export default function App() {
                 name={v().name}
                 onReady={(c) => (playerSeek = c.seek)}
                 onTime={setCurrentTime}
-              />
-              <TranscriptPanel
-                videoPath={v().path}
+              >
+                <CaptionOverlay currentTime={currentTime} />
+              </VideoPlayer>
+              <SidePanel
                 currentTime={currentTime}
                 onSeek={(t) => playerSeek?.(t)}
               />

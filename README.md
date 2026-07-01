@@ -27,7 +27,16 @@ for on-device transcription and a bundled GPL build of
 [FFmpeg](https://ffmpeg.org) (including `libx264` and `libass`) for audio
 extraction and the caption burn-in.
 
-<!-- Screenshots (light + dark) go here. -->
+<!--
+  Screenshots: capture from a running build (`npm run tauri dev`), save them as
+  docs/screenshot-dark.png and docs/screenshot-light.png (see docs/README.md),
+  then delete this comment and uncomment the block below.
+
+<p align="center">
+  <img src="docs/screenshot-dark.png" width="49%" alt="CaptionSmith, dark theme" />
+  <img src="docs/screenshot-light.png" width="49%" alt="CaptionSmith, light theme" />
+</p>
+-->
 
 ## How captions work
 

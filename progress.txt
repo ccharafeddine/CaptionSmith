@@ -504,5 +504,56 @@ NOTE: a LOCAL Windows `tauri build` would bundle the DYNAMIC dev whisper-cli
 (missing its DLLs in the prod layout) and be broken — CI's static build is the
 supported release path. Documented for future me.
 
-NEXT: Step 13 (README polish + light/dark screenshots; document that burn-in is
-a re-encode). Final step.
+
+--- Step 13: README + screenshots --------------------------------------------
+DONE (as far as is possible without a live window).
+- README was shipped from day one and is accurate against the final build:
+  features, the keyboard-shortcuts table (Space / arrows step / Enter / Esc),
+  the build-from-source scripts (all four now exist), licensing, roadmap.
+- Burn-in-is-a-re-encode is clearly documented ("How captions work": re-encoded
+  to H.264/AAC, not instant, not bit-identical, progress bar) + the burn-in
+  feature bullet. Reads as expected behaviour, not a bug.
+- Screenshots: CANNOT be captured here (they're pictures of the real native
+  window; no live window in this environment, and a plain browser can't run the
+  Tauri APIs). Set up the handoff instead: README has a ready-to-uncomment
+  side-by-side <img> block for docs/screenshot-dark.png + docs/screenshot-
+  light.png, and docs/README.md gives exact capture instructions. USER must
+  capture these from `npm run tauri dev` (dark + light).
+
+VERIFIED (final sweep): npm run build clean, cargo clippy clean, cargo test
+--lib => 9 passed.
+
+================================================================================
+BUILD PLAN COMPLETE (Steps 1-13). Everything that can be verified without a live
+GUI window has been (build/clippy/test green; each sidecar command validated
+end-to-end at the CLI with the exact args the Rust issues). What remains is
+human/CI verification I can't do from here:
+
+LIVE-WINDOW TESTING (run `npm run tauri dev`), in one pass:
+  1. Load a local video (picker + drag-drop) and a URL import (yt-dlp progress +
+     cancel). Playback + audio via the asset protocol.
+  2. Transcribe: two-phase progress, cancel (button + Esc), the model-missing
+     panel (rename resources/models to test). Segment list + click-to-seek.
+  3. Edit: inline text, nudge/snap timing, split, merge, delete; active-segment
+     highlight + autoscroll; Enter-at-playhead.
+  4. Style: three presets, all controls, live overlay tracking the playhead;
+     Word highlight CTA -> word timing -> karaoke pops in sync.
+  5. Export: sidecar SRT/VTT/ASS (Save dialog defaults to Exports); BURN-IN ->
+     open the .mp4 and confirm captions are visible + in sync + match the style.
+     Cancel a burn (button + Esc) leaves no partial file.
+  6. Shortcuts: Space, <-/->, Enter, Esc all behave and stay quiet while typing.
+  7. Theme: OS light vs dark both look right (Mac + Windows).
+  8. No leftover temp WAV/ASS/work dirs in OS temp after runs.
+
+CI VALIDATION (push a throwaway tag, watch Actions):
+  - The release workflow builds on macos-14 + windows-latest. Highest risk: the
+    macOS from-source FFmpeg build (build-ffmpeg-macos.sh) and the universal
+    whisper build; iterate on those scripts if they fail. Then install the
+    drafted .dmg + .msi and smoke-test.
+  - Reminder: a LOCAL Windows `tauri build` would bundle the DYNAMIC dev
+    whisper-cli (missing DLLs in the prod layout) and be broken; CI's static
+    build is the supported release path.
+
+SCREENSHOTS: capture dark + light from a live run into docs/ (see docs/README.md)
+and uncomment the block in README.md.
+================================================================================

@@ -43,6 +43,7 @@ export default function App() {
 
   // Imperative seek handle registered by the player, driven by the transcript.
   let playerSeek: ((seconds: number) => void) | undefined;
+  const [currentTime, setCurrentTime] = createSignal(0);
 
   const show = (path: string) => {
     setError(null);
@@ -163,9 +164,11 @@ export default function App() {
                 path={v().path}
                 name={v().name}
                 onReady={(c) => (playerSeek = c.seek)}
+                onTime={setCurrentTime}
               />
               <TranscriptPanel
                 videoPath={v().path}
+                currentTime={currentTime}
                 onSeek={(t) => playerSeek?.(t)}
               />
             </div>

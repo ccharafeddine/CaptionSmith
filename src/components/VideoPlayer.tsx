@@ -15,6 +15,8 @@ type VideoPlayerProps = {
   name: string;
   /** Receives an imperative controls handle once the element is mounted. */
   onReady?: (controls: PlayerControls) => void;
+  /** Fires on playback time updates (drives transcript playhead sync). */
+  onTime?: (seconds: number) => void;
 };
 
 export default function VideoPlayer(props: VideoPlayerProps) {
@@ -82,6 +84,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
           onLoadedMetadata={() => setDuration(videoEl.duration || 0)}
           onTimeUpdate={() => {
             if (!scrubbing()) setCurrent(videoEl.currentTime);
+            props.onTime?.(videoEl.currentTime);
           }}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}

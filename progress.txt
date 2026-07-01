@@ -223,5 +223,54 @@ STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
   the correct <AppData>/CaptionSmith/models path.
 - Confirm no leftover temp WAV/JSON in OS temp after a run.
 
-NEXT: Step 6 (editable transcript: inline edit, merge/split, nudge timing,
-delete; language picker + translate toggle). Paused here per the cadence.
+
+--- Step 6: Editable transcript + language/translate controls -----------------
+DONE (code complete; needs live-window test). Mostly frontend; one small Rust
+command (list_models) so the model-gated controls are actually functional.
+- Backend (transcribe.rs): list_models command returns the bundled English
+  default plus any ggml-*.bin in <AppData>/CaptionSmith/models, each flagged
+  multilingual (name lacks ".en."). Registered in lib.rs. (transcribe already
+  accepted language/translate/model from Step 5 — now wired to the UI.)
+- Player -> panel playhead sync: VideoPlayer gained an onTime prop; App holds a
+  currentTime signal and passes it to TranscriptPanel (Accessor). Drives the
+  active-segment highlight, autoscroll, and split/"set to playhead".
+- TranscriptPanel is now an editor (segments held in a createStore for granular,
+  cursor-stable edits):
+    * Controls (shown idle + done): model picker, language picker, translate
+      toggle. Language/translate are DISABLED with an explanation when the
+      selected model is English-only (the bundled default), and ENABLE when a
+      multilingual model is picked — matches the spec's "only meaningful with a
+      multilingual model" rule. Transcribe/Re-transcribe button.
+    * Per-segment editing (click a segment to select+seek; it expands):
+        - inline text edit (uncontrolled textarea -> store, no cursor jump;
+          the compact line reflects edits live)
+        - nudge start/end by 0.1s, or snap either to the playhead (⌖)
+        - Split (at the playhead if inside the segment, else midpoint; text is
+          divided by word count proportionally, words[] partitioned by time)
+        - Merge ↓ (into the next segment; texts joined, words concatenated)
+        - Delete
+      All ops keep start<end invariants (clamped).
+    * Active segment (under the playhead) gets a cyan left-rail + autoscrolls
+      into view during playback. Selected segment gets a raised background.
+    * Enter edits the segment at the playhead (Step 10 shortcut, wired here);
+      Esc still cancels an in-flight transcription. Both ignore typing targets.
+    * Resets cleanly when a different video is loaded (createEffect on videoPath),
+      keeping the model/language/translate choices.
+- The edited store is the source of truth that Steps 8-9 (export) will serialize.
+
+VERIFIED:
+- cargo clippy => clean. npm run build (tsc noUnusedLocals + vite) => clean.
+- (list_models compiles; transcribe/whisper path unchanged from Step 5.)
+
+STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
+- After transcribing, click a segment: it selects, seeks, and expands the editor.
+- Edit text; nudge/snap start+end; Split at the playhead; Merge ↓; Delete —
+  confirm each behaves and the list stays consistent.
+- Play through: the active segment highlights and autoscrolls; Enter at the
+  playhead opens that segment for editing.
+- Drop a multilingual ggml model in <AppData>/CaptionSmith/models, reopen: it
+  appears in the Model picker and unlocks Language + Translate.
+
+NEXT: Step 7 (caption styles + live preview: Bottom bar / Bold social / Word
+highlight; font/size/color/outline/position/words-per-line/UPPERCASE/margin;
+HTML preview over the player; request word timestamps lazily for karaoke).

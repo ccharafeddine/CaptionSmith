@@ -28,6 +28,7 @@ pub fn run() {
             ffmpeg::extract_audio,
             transcribe::transcribe,
             transcribe::cancel_transcribe,
+            transcribe::list_models,
         ])
         .run(tauri::generate_context!())
         .expect("error while running CaptionSmith");

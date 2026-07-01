@@ -50,6 +50,18 @@ struct TranscribeProgress {
     percent: f64,
 }
 
+#[derive(Clone, Serialize)]
+pub struct ModelInfo {
+    /// Filename to pass back as the `model` arg; empty string = bundled default.
+    name: String,
+    /// Human label for the picker.
+    label: String,
+    /// Multilingual models (no ".en" in the name) unlock language pick + translate.
+    multilingual: bool,
+    /// The bundled default (English base model).
+    is_default: bool,
+}
+
 /// The known models folder the user can drop custom `ggml-*.bin` files into.
 /// Matches the CLAUDE.md pointer: <AppData>/CaptionSmith/models.
 fn models_dir(app: &AppHandle) -> Option<PathBuf> {
@@ -170,6 +182,44 @@ fn parse_segments(json: &str, want_words: bool) -> Result<Vec<Segment>, String> 
 #[tauri::command]
 pub fn cancel_transcribe(state: State<'_, TranscribeState>) {
     state.cancel.cancel();
+}
+
+/// List selectable models: the bundled English default (if present) plus any
+/// `ggml-*.bin` the user dropped into <AppData>/CaptionSmith/models.
+#[tauri::command]
+pub fn list_models(app: AppHandle) -> Vec<ModelInfo> {
+    let mut models = Vec::new();
+
+    if resolve_model(&app, None).is_ok() {
+        models.push(ModelInfo {
+            name: String::new(),
+            label: "Base · English (bundled)".to_string(),
+            multilingual: false,
+            is_default: true,
+        });
+    }
+
+    if let Some(dir) = models_dir(&app) {
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) != Some("bin") {
+                    continue;
+                }
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    models.push(ModelInfo {
+                        name: name.to_string(),
+                        label: name.to_string(),
+                        // ".en" in the name marks an English-only model.
+                        multilingual: !name.contains(".en."),
+                        is_default: false,
+                    });
+                }
+            }
+        }
+    }
+
+    models
 }
 
 /// Transcribe `src`. `language` is a whisper code ("en", "auto", ...);

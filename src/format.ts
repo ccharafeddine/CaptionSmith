@@ -9,3 +9,12 @@ export function formatTime(seconds: number): string {
   const ss = String(s).padStart(2, "0");
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
+
+/** Format seconds as m:ss.d (one decimal) for fine timing controls. */
+export function formatPrecise(seconds: number): string {
+  const v = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+  const m = Math.floor(v / 60);
+  const s = v % 60;
+  return `${m}:${s.toFixed(1).padStart(4, "0")}`;
+}
+

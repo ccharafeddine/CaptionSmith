@@ -426,6 +426,84 @@ body {
   max-width: 100%;
 }
 
+/* ---------- Transcribe controls ---------- */
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s4);
+  border-bottom: 1px solid var(--border);
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.control-label {
+  font-size: 12px;
+  color: var(--fg-2);
+  width: 64px;
+  flex-shrink: 0;
+}
+
+.select {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  padding: var(--s2) var(--s2);
+  outline: none;
+  cursor: pointer;
+}
+
+.select:disabled {
+  color: var(--fg-3);
+  cursor: not-allowed;
+}
+
+.control-check {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: 13px;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.control-check.disabled {
+  color: var(--fg-3);
+  cursor: not-allowed;
+}
+
+.control-check input {
+  accent-color: var(--accent);
+}
+
+.control-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+
+.control-note code {
+  color: var(--accent-2);
+  font-family: ui-monospace, monospace;
+}
+
+.control-go {
+  margin-top: var(--s1);
+}
+
+/* ---------- Segment list + editor ---------- */
+
 .segment-list {
   list-style: none;
   margin: 0;
@@ -436,16 +514,29 @@ body {
 }
 
 .segment {
+  border-radius: var(--r-control);
+  border-left: 2px solid transparent;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+
+.segment.active {
+  border-left-color: var(--accent-2);
+}
+
+.segment.selected {
+  background: var(--bg-control);
+}
+
+.segment-main {
   display: flex;
   gap: var(--s3);
   padding: var(--s2) var(--s3);
-  border-radius: var(--r-control);
   cursor: pointer;
-  transition: background 0.1s ease;
 }
 
-.segment:hover {
+.segment:not(.selected) .segment-main:hover {
   background: var(--bg-control);
+  border-radius: var(--r-control);
 }
 
 .segment-time {
@@ -461,6 +552,108 @@ body {
   font-size: 13px;
   line-height: 1.45;
   color: var(--fg);
+  white-space: pre-wrap;
+}
+
+.segment-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3) var(--s3);
+}
+
+.edit-text {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--fg);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  padding: var(--s2);
+  resize: vertical;
+  outline: none;
+  user-select: text;
+}
+
+.edit-text:focus {
+  border-color: var(--accent);
+}
+
+.timing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.timing-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.timing-label {
+  font-size: 11px;
+  color: var(--fg-2);
+  width: 34px;
+}
+
+.timing-val {
+  font-size: 12px;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+  text-align: center;
+}
+
+.tiny {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  cursor: pointer;
+}
+
+.tiny:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tiny.wide {
+  width: auto;
+  padding: 0 var(--s2);
+}
+
+.seg-actions {
+  display: flex;
+  gap: var(--s2);
+}
+
+.tiny-btn {
+  padding: var(--s1) var(--s2);
+  font-size: 12px;
+  flex: 1;
+}
+
+.tiny-btn.danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.tiny-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.empty-note {
+  padding: var(--s5);
+  text-align: center;
 }
 
 .player-stage {

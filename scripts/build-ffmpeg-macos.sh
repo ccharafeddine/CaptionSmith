@@ -25,7 +25,6 @@ JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 # Source pins (bump as needed).
 X264_REV="stable"
 FRIBIDI_VER="1.0.16"
-HARFBUZZ_VER="10.1.0"
 FREETYPE_VER="2.13.3"
 LIBASS_VER="0.17.3"
 FFMPEG_VER="7.1"
@@ -60,11 +59,10 @@ tar -xf freetype.tar.xz && ( cd "freetype-$FREETYPE_VER" \
   && ./configure --prefix="$PREFIX" --enable-static --disable-shared \
   && make -j"$JOBS" && make install )
 
-echo "== harfbuzz =="
-fetch "https://github.com/harfbuzz/harfbuzz/releases/download/$HARFBUZZ_VER/harfbuzz-$HARFBUZZ_VER.tar.xz" "harfbuzz.tar.xz"
-tar -xf harfbuzz.tar.xz && ( cd "harfbuzz-$HARFBUZZ_VER" \
-  && ./configure --prefix="$PREFIX" --enable-static --disable-shared \
-  && make -j"$JOBS" && make install )
+# NOTE: HarfBuzz is intentionally omitted. Modern HarfBuzz ships a Meson-only
+# build (no ./configure), and it's optional for libass — without it libass uses
+# its legacy shaper, which is fine for Latin/social captions (the v1 focus).
+# Re-add it via Meson later if complex-script (Arabic/Indic) burn-in is needed.
 
 echo "== libass =="
 fetch "https://github.com/libass/libass/releases/download/$LIBASS_VER/libass-$LIBASS_VER.tar.xz" "libass.tar.xz"

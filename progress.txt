@@ -439,5 +439,31 @@ STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
 - Confirm shortcuts do NOT fire while typing in the transcript textarea, the URL
   field, or when a select/slider is focused.
 
-NEXT: Step 11 (theming: dark-first via shared tokens; optional light variant via
-prefers-color-scheme). Then 12 (release workflow) and 13 (README/screenshots).
+
+--- Step 11: Theming (dark-first + optional light) ---------------------------
+DONE (code complete; needs live-window test on light + dark, Mac + Windows).
+- Dark remains the identity/default (base :root tokens, color-scheme: dark).
+- Added a light variant in src/tokens.css under
+  @media (prefers-color-scheme: light): overrides the colour tokens only
+  (bg/fg/border/accents/danger) and sets color-scheme: light. Violet accent
+  darkened (#8a4dff) and the cyan wordmark -> teal (#0a9c9c) for legibility on
+  light backgrounds; spacing/radius/fonts unchanged.
+- Removed the forced window "theme": "Dark" from tauri.conf.json so the webview
+  follows the OS preference (otherwise prefers-color-scheme always reports dark
+  and the light variant could never trigger).
+- Audited app.css for hardcoded colours: only .player-stage (#000) and
+  .caption-line.box (rgba black) are hardcoded, both intentional (they sit over
+  the video and stay black in any theme). Everything else uses tokens, so the
+  whole UI adapts. Caption outline stroke stays #000 (over video) by design.
+
+VERIFIED:
+- npm run build clean.
+
+STILL NEEDS LIVE-WINDOW TESTING:
+- Toggle the OS to light and confirm the app switches to the light palette with
+  good contrast (panels, borders, transcript, controls, wordmark), and back to
+  dark. Test on both Windows and macOS (spec).
+
+NEXT: Step 12 (release workflow: .github/workflows/release.yml via tauri-action
+on v* tag; fetch/build all sidecars incl. static whisper-cli; universal macOS
+.dmg + Windows .msi). Then 13 (README + screenshots).

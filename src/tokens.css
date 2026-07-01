@@ -36,3 +36,29 @@
   --font-display: "Syne", -apple-system, "Segoe UI", system-ui, sans-serif;
   --font-body: "Syne", -apple-system, "Segoe UI", system-ui, sans-serif;
 }
+
+/* Optional light variant — follows the OS. Dark is the identity; this just
+   keeps CaptionSmith legible for users who run their system in light mode. */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --bg-base: #f6f6f7;    /* app canvas */
+    --bg-panel: #ffffff;   /* panels / modal */
+    --bg-control: #eeeef0; /* raised controls */
+
+    --fg: #1a1a1c;         /* primary text */
+    --fg-2: #565659;       /* secondary */
+    --fg-3: #8c8c90;       /* tertiary */
+
+    --accent: #8a4dff;     /* violet, darkened for contrast on light */
+    --accent-fg: #ffffff;
+    --accent-2: #0a9c9c;   /* teal, darkened so the wordmark stays legible */
+    --accent-2-fg: #ffffff;
+
+    /* gradient unchanged — violet reads well on light too */
+
+    --border: #e2e2e5;
+    --danger: #d13b3b;
+  }
+}

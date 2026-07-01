@@ -35,7 +35,8 @@
     "targets": ["dmg", "msi", "nsis"],
     "externalBin": ["binaries/yt-dlp", "binaries/ffmpeg", "binaries/ffprobe"],
     "resources": {
-      "resources/models/ggml-base.en.bin": "models/ggml-base.en.bin"
+      "resources/models/ggml-base.en.bin": "models/ggml-base.en.bin",
+      "resources/fonts/Syne.ttf": "fonts/Syne.ttf"
     },
     "icon": [
       "icons/32x32.png",

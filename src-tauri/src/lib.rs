@@ -14,6 +14,7 @@ mod subtitles;
 mod transcribe;
 mod url_import;
 
+use ffmpeg::BurnState;
 use tauri::Manager;
 use transcribe::TranscribeState;
 use url_import::DownloadState;
@@ -38,6 +39,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .manage(DownloadState::default())
         .manage(TranscribeState::default())
+        .manage(BurnState::default())
         .invoke_handler(tauri::generate_handler![
             url_import::download_url,
             url_import::cancel_download,
@@ -46,6 +48,8 @@ pub fn run() {
             transcribe::cancel_transcribe,
             transcribe::list_models,
             subtitles::export_sidecar,
+            ffmpeg::burn_in,
+            ffmpeg::cancel_burn,
             ensure_export_dir,
         ])
         .run(tauri::generate_context!())

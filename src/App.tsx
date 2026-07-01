@@ -183,7 +183,7 @@ export default function App() {
       </main>
 
       <Show when={video() && transcript.segments.length > 0}>
-        <ExportBar videoName={video()!.name} />
+        <ExportBar videoPath={video()!.path} videoName={video()!.name} />
       </Show>
 
       <Show when={dragging()}>

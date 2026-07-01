@@ -955,11 +955,37 @@ body {
   width: 76px;
 }
 
+.export-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
 .export-status {
   flex: 1;
   min-width: 0;
   font-size: 12px;
   overflow: hidden;
+}
+
+.burn-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+}
+
+.burn-track {
+  flex: 1;
+  max-width: 480px;
+}
+
+.export-pct {
+  font-size: 12px;
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
 }
 
 .export-saved {

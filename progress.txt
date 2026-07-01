@@ -362,6 +362,50 @@ STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
 - Export an ASS on the Word highlight preset (with word timing) and confirm the
   karaoke tags look right; open it in a player (e.g. VLC) over the video.
 
-NEXT: Step 9 (burn-in export: build temp .ass from segments+style, run the
-libx264 re-encode with the ass filter [via cwd+relative name], time= progress
-bar + Cancel, output <stem>_captioned.mp4).
+
+--- Step 9: Burn-in export (libx264 + ass filter) ----------------------------
+DONE (code complete + CLI-validated end-to-end; needs live-window test).
+- src-tauri/src/ffmpeg.rs: burn_in / cancel_burn commands + managed BurnState.
+    * probe_video (ffprobe) reads the video's WxH + duration; the ASS PlayRes is
+      set to the exact video dimensions so positions/sizes are precise.
+    * Builds the ASS via subtitles::to_ass (shared with Step 8) and writes it to
+      a private temp dir as a BARE filename (captions.ass).
+    * Runs: ffmpeg -i <src> -vf "ass=captions.ass:fontsdir=fonts" -c:v libx264
+      -crf 18 -preset medium -c:a aac -b:a 192k -movflags +faststart <out>.
+      The ffmpeg child's current_dir() is the temp dir, so the ass filter never
+      sees a Windows drive colon (the Step 8 finding) — no fragile escaping.
+    * Bundled Syne so libass can render it: resources/fonts/Syne.ttf, bundled via
+      tauri.conf resources; copied into <work>/fonts/ and referenced with
+      fontsdir=fonts (a subdir so libass doesn't try to load the .ass as a font).
+      System fonts (Arial/Impact/Georgia) still resolve via the platform provider
+      (DirectWrite on Windows).
+    * time= parsed against the probed duration -> "burn-progress" { percent }.
+    * Cancellable via BurnState's Cancellation (kills ffmpeg); on cancel/error it
+      removes the partial .mp4 and the temp work dir. Temp .ass never persists.
+- lib.rs: registered burn_in/cancel_burn + BurnState.
+- Frontend: ExportBar now has BOTH actions — "Export file" (sidecar, ghost) and
+  the headline "Burn in -> .mp4" (accent). Burn shows a real progress bar +
+  percent + Cancel (button and Esc) in place of the bar; Save dialog defaults to
+  <Documents>/CaptionSmith/Exports/<stem>_captioned.mp4. Shows the saved path or
+  an error; a cancel is quiet.
+
+VERIFIED:
+- cargo clippy clean; cargo test --lib => 9 passed; npm run build clean.
+- END-TO-END at the CLI with the EXACT command Rust runs (cwd=work dir, relative
+  ass=captions.ass:fontsdir=fonts, libx264 crf18 preset medium, aac 192k): burned
+  a real 1280x720 test video, ffmpeg exit 0, libass parsed the ASS (2 styles/2
+  events) and loaded Syne.ttf; output probes as h264 1280x720 + aac, valid mp4.
+  Confirmed fontsdir=fonts (subdir) loads only the font with no spurious errors.
+
+STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
+- Full path: load video -> transcribe -> style -> Burn in. Watch the progress
+  bar advance and Cancel (button + Esc) stop it (and remove the partial file).
+- Open the exported <stem>_captioned.mp4 in a normal player: captions VISIBLE,
+  IN SYNC, and matching the chosen style (position/size/color/outline/box).
+- Try each preset incl. Word highlight (with word timing) and confirm the
+  karaoke burn matches the preview reasonably (libass is authoritative).
+- Confirm no temp WAV/ASS/work dirs remain in OS temp afterward.
+
+NEXT: Step 10 (keyboard shortcuts: Space play/pause, arrows frame-step, Enter
+edit segment at playhead, Esc cancel export/close dialog) — several already
+wired opportunistically; Step 10 completes + audits them.

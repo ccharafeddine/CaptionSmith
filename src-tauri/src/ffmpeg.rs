@@ -10,10 +10,12 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::proc::Cancellation;
 use crate::sidecar;
+use crate::subtitles::{to_ass, CaptionStyle};
+use crate::transcribe::Segment;
 
 static AUDIO_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -162,6 +164,219 @@ pub async fn extract_audio(app: AppHandle, src: String) -> Result<String, String
     })
     .await
     .map_err(|e| format!("task join: {e}"))?
+}
+
+// ---- Burn-in export (Step 9) ------------------------------------------------
+
+/// Managed cancel handle for the in-flight burn-in.
+#[derive(Default)]
+pub struct BurnState {
+    cancel: Cancellation,
+}
+
+#[derive(Clone, Serialize)]
+struct BurnProgress {
+    percent: Option<f64>,
+}
+
+/// Probe a video's pixel dimensions and duration via ffprobe.
+fn probe_video(ffprobe: &Path, src: &str) -> Result<(u32, u32, f64), String> {
+    let mut cmd = Command::new(ffprobe);
+    cmd.arg("-v").arg("error")
+        .arg("-select_streams").arg("v:0")
+        .arg("-show_entries").arg("stream=width,height:format=duration")
+        .arg("-of").arg("default=noprint_wrappers=1")
+        .arg(src)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000);
+    }
+
+    let output = cmd.output().map_err(|e| format!("ffprobe failed: {e}"))?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    let (mut w, mut h, mut dur) = (0u32, 0u32, 0.0f64);
+    for line in text.lines() {
+        if let Some(v) = line.strip_prefix("width=") {
+            w = v.trim().parse().unwrap_or(0);
+        } else if let Some(v) = line.strip_prefix("height=") {
+            h = v.trim().parse().unwrap_or(0);
+        } else if let Some(v) = line.strip_prefix("duration=") {
+            dur = v.trim().parse().unwrap_or(0.0);
+        }
+    }
+    if w == 0 || h == 0 {
+        return Err("Could not read the video's dimensions.".into());
+    }
+    Ok((w, h, dur))
+}
+
+/// Locate the bundled Syne font so libass can render it (resource dir in a
+/// bundle, source tree in dev). Returns None if absent (falls back to system
+/// fonts, e.g. when the user picked Arial).
+fn bundled_font(app: &AppHandle) -> Option<PathBuf> {
+    if let Ok(res) = app.path().resource_dir() {
+        let p = res.join("fonts").join("Syne.ttf");
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("resources")
+        .join("fonts")
+        .join("Syne.ttf");
+    dev.exists().then_some(dev)
+}
+
+#[tauri::command]
+pub fn cancel_burn(state: State<'_, BurnState>) {
+    state.cancel.cancel();
+}
+
+/// Burn captions into the video: build the .ass from segments+style and run the
+/// libx264 re-encode with the ass filter. Emits "burn-progress" and is
+/// cancellable. `out` is the user-chosen .mp4 path.
+#[tauri::command]
+pub async fn burn_in(
+    app: AppHandle,
+    state: State<'_, BurnState>,
+    src: String,
+    segments: Vec<Segment>,
+    style: CaptionStyle,
+    out: String,
+) -> Result<(), String> {
+    let ffmpeg = sidecar::resolve("ffmpeg")?;
+    let ffprobe = sidecar::resolve("ffprobe")?;
+    let font = bundled_font(&app);
+    let cancel = state.cancel.clone();
+    cancel.reset();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        run_burn(&app, &cancel, &ffmpeg, &ffprobe, font.as_deref(), &src, &segments, &style, &out)
+    })
+    .await
+    .map_err(|e| format!("task join: {e}"))?
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_burn(
+    app: &AppHandle,
+    cancel: &Cancellation,
+    ffmpeg: &Path,
+    ffprobe: &Path,
+    font: Option<&Path>,
+    src: &str,
+    segments: &[Segment],
+    style: &CaptionStyle,
+    out: &str,
+) -> Result<(), String> {
+    if !Path::new(src).exists() {
+        return Err(format!("Source file not found: {src}"));
+    }
+
+    let (w, h, probed_dur) = probe_video(ffprobe, src)?;
+    let ass = to_ass(segments, style, w, h);
+
+    // Work in a private temp dir and reference the .ass by BARE filename so the
+    // ffmpeg filtergraph never sees a Windows drive colon (which it would parse
+    // as an option separator). See progress.txt Step 8 finding.
+    let id = AUDIO_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let mut work = std::env::temp_dir();
+    work.push(format!("captionsmith-burn-{}-{}", std::process::id(), id));
+    std::fs::create_dir_all(&work).map_err(|e| format!("temp dir: {e}"))?;
+    let ass_name = "captions.ass";
+    std::fs::write(work.join(ass_name), ass).map_err(|e| format!("write .ass: {e}"))?;
+
+    // Copy the bundled Syne into a fonts/ subdir and point libass there so it
+    // renders even though Syne isn't a system font. (A subdir, not ".", so
+    // libass doesn't try to load the .ass itself as a font.) System fonts still
+    // resolve via the platform provider.
+    if let Some(font) = font {
+        let fonts = work.join("fonts");
+        if std::fs::create_dir_all(&fonts).is_ok() {
+            let _ = std::fs::copy(font, fonts.join("Syne.ttf"));
+        }
+    }
+
+    let work_clone = work.clone();
+    let cleanup = move || {
+        let _ = std::fs::remove_dir_all(&work_clone);
+    };
+
+    let vf = format!("ass={ass_name}:fontsdir=fonts");
+    let mut cmd = base_command(ffmpeg);
+    cmd.current_dir(&work)
+        .arg("-i").arg(src)
+        .arg("-vf").arg(&vf)
+        .arg("-c:v").arg("libx264")
+        .arg("-crf").arg("18")
+        .arg("-preset").arg("medium")
+        .arg("-c:a").arg("aac")
+        .arg("-b:a").arg("192k")
+        .arg("-movflags").arg("+faststart")
+        .arg(out);
+
+    let mut child = cmd.spawn().map_err(|e| {
+        cleanup();
+        format!("Failed to start ffmpeg: {e}")
+    })?;
+    let stderr = child.stderr.take().expect("piped stderr");
+    cancel.set_child(child);
+
+    let mut total = if probed_dur > 0.0 { Some(probed_dur) } else { None };
+    let mut tail: Vec<String> = Vec::new();
+    for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+        if total.is_none() {
+            if let Some(d) = field_seconds(&line, "Duration:") {
+                total = Some(d);
+            }
+        }
+        if let Some(t) = field_seconds(&line, "time=") {
+            let percent = total.map(|d| if d > 0.0 { (t / d * 100.0).min(100.0) } else { 0.0 });
+            let _ = app.emit("burn-progress", BurnProgress { percent });
+        }
+        tail.push(line);
+        if tail.len() > 20 {
+            tail.remove(0);
+        }
+    }
+
+    let status = match cancel.take_child() {
+        Some(mut child) => {
+            if cancel.is_cancelled() {
+                let _ = child.kill();
+            }
+            child.wait().map_err(|e| format!("ffmpeg wait: {e}"))?
+        }
+        None => {
+            cleanup();
+            let _ = std::fs::remove_file(out); // drop the partial mp4
+            return Err("cancelled".into());
+        }
+    };
+
+    if cancel.is_cancelled() {
+        cleanup();
+        let _ = std::fs::remove_file(out);
+        return Err("cancelled".into());
+    }
+    if !status.success() {
+        cleanup();
+        let _ = std::fs::remove_file(out);
+        let detail = tail
+            .iter()
+            .rev()
+            .find(|l| l.to_lowercase().contains("error") || l.contains("Invalid") || l.contains("failed"))
+            .cloned()
+            .unwrap_or_else(|| "ffmpeg could not burn in the captions.".to_string());
+        return Err(detail.trim().to_string());
+    }
+
+    cleanup();
+    let _ = app.emit("burn-progress", BurnProgress { percent: Some(100.0) });
+    Ok(())
 }
 
 #[cfg(test)]

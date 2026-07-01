@@ -1,0 +1,67 @@
+CaptionSmith — progress log
+===========================
+(Newest entries at the bottom. Mirrors the running log style of GifSmith/ClipSmith.)
+
+Build plan lives in CLAUDE.md. Steps done here map to that numbered plan.
+
+
+--- Step 1: Scaffold ---------------------------------------------------------
+DONE.
+- Tauri 2 + SolidJS + TypeScript + Vite project created from scratch (no
+  create-tauri-app; files authored directly for full control).
+- Verified live npm/crates versions before pinning (no guessed versions):
+    @tauri-apps/api 2.11.1, cli 2.11.4, plugin-dialog 2.7.1, plugin-fs 2.5.1
+    solid-js 1.9.13, vite-plugin-solid 2.11.12
+    tauri 2.11.4, tauri-build 2.6.3 (Rust side)
+  Pinned vite ^6 (not the just-released 8) and TS ^5.6 for plugin-solid
+  compatibility.
+- Shared Smith design tokens wired into src/tokens.css, imported once globally
+  from src/index.tsx.
+- Syne font bundled locally in src/assets/fonts/Syne[wght].ttf (variable font,
+  wght 400-800) + OFL.txt license. Loaded via @font-face, NO web-font request.
+- App icon authored at src/assets/captionsmith-icon.svg (caption-block glyph,
+  violet trim frame). `tauri icon` generated all platform icons into
+  src-tauri/icons/.
+- tauri.conf.json: window 1100x740 (min 720x520), dark theme, asset protocol
+  enabled with scope ["**"], CSP allows asset:/media-src for local playback.
+- capabilities/default.json: dialog:open, fs read, asset access for window "main".
+
+VERIFIED:
+- `npm run build` (tsc --noEmit + vite build) => clean, 0 errors.
+- `cargo check` => clean (1m51s first build, all Tauri crates).
+- `cargo clippy` => clean, 0 warnings.
+
+
+--- Step 2: Load + play a video ----------------------------------------------
+DONE (code complete; needs live-window test — see below).
+- src/App.tsx: empty-state dropzone + loaded-video state.
+    * File picker via @tauri-apps/plugin-dialog `open()`, filtered to
+      mp4/mov/mkv/webm/avi/m4v.
+    * Drag-and-drop via getCurrentWebview().onDragDropEvent (Tauri native DnD;
+      HTML5 dnd is suppressed by the webview). enter/over -> highlight,
+      leave -> clear, drop -> load first path.
+    * Extension guard rejects non-video drops with a clear inline error.
+    * convertFileSrc() turns the on-disk path into an asset: URL — source is
+      read in place, never copied/imported (spec hard constraint).
+    * "Clear" button in the top bar unloads without opening another file.
+- src/components/VideoPlayer.tsx: <video> with audio kept, custom controls —
+  play/pause, scrubbable seekbar (tabular-nums time readout), click-to-toggle.
+    * Space toggles play/pause (ignored while typing in a field). This is the
+      Step 10 shortcut, wired early since it's trivial here; frame-step / Enter /
+      Esc come with their features.
+- Props accessed via props.x throughout (no destructuring) — Solid reactivity
+  rule from CLAUDE.md respected.
+
+VERIFIED:
+- Type-check + build clean with the real components in place.
+
+STILL NEEDS LIVE-WINDOW TESTING (run `npm run tauri dev`):
+- Actually open a file and confirm asset-protocol playback + audio.
+- Confirm drag-and-drop path arrives and loads.
+- Confirm the CSP allows the asset: media source (watch devtools console for CSP
+  violations; loosen app.security.csp media-src if the webview blocks it).
+- Confirm Space play/pause and seekbar scrub feel right.
+- Sanity-check the dark theme + Syne font render on this Windows box.
+
+NEXT: Step 3 (URL import via bundled yt-dlp) — paused here per request so the
+dev window can be exercised first. Do NOT start transcription/export yet.

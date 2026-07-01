@@ -1,0 +1,38 @@
+/* CaptionSmith — shared Smith-family design tokens.
+   Imported once, globally, from src/index.tsx. Dark-first. */
+
+@font-face {
+  font-family: "Syne";
+  src: url("./assets/fonts/Syne[wght].ttf") format("truetype");
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+
+  --bg-base: #0a0a0a;      /* app canvas */
+  --bg-panel: #141414;     /* panels / modal */
+  --bg-control: #1e1e1e;   /* raised controls */
+
+  --fg: #ededed;           /* primary text */
+  --fg-2: #9a9a9a;         /* secondary */
+  --fg-3: #5e5e5e;         /* tertiary */
+
+  --accent: #a974ff;       /* electric violet — primary accent, trim handles */
+  --accent-fg: #ffffff;
+  --accent-2: #45f2f2;     /* electric cyan — the "Smith" wordmark, glyphs */
+  --accent-2-fg: #062020;
+
+  --grad: linear-gradient(135deg, #c6acff 0%, #a974ff 50%, #8a4dff 100%);
+
+  --border: #262626;
+  --danger: #ff5d5d;
+
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+  --r-control: 6px; --r-panel: 12px;
+
+  --font-display: "Syne", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-body: "Syne", -apple-system, "Segoe UI", system-ui, sans-serif;
+}

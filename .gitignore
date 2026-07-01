@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Frontend build output
+dist/
+
+# Rust / Tauri build output
+src-tauri/target/
+src-tauri/gen/
+
+# Bundled sidecar binaries (fetched per release, not committed)
+src-tauri/binaries/
+src-tauri/resources/models/
+
+# Editor / OS cruft
+.DS_Store
+Thumbs.db
+*.log
+
+# Env / secrets
+.env
+.env.*

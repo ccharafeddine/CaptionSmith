@@ -111,5 +111,47 @@ STILL NEEDS LIVE-WINDOW TESTING (npm run tauri dev):
 - Confirm a bad URL surfaces yt-dlp's ERROR line in the UI, not a raw panic.
 - Confirm Tauri dev finds the externalBin sidecar for this triple.
 
-NEXT: Step 4 (Rust audio-extract command: ffmpeg -> 16kHz mono WAV in temp).
-Paused here per the run-after-each-step cadence. Do NOT start transcription yet.
+
+--- Step 4: Audio extract command (ffmpeg -> 16kHz mono WAV) ------------------
+DONE (code complete + CLI-validated). NOTE: no new UI yet — this command is
+backend-only; it gets its first UI when wired to transcription in Step 5. So
+`npm run tauri dev` shows nothing new for Step 4 (just confirm it still runs).
+- Bundled FFmpeg + ffprobe as externalBin sidecars:
+    * scripts/fetch-ffmpeg.sh: Windows/Linux download the BtbN GPL static build
+      (win64 via PowerShell Expand-Archive — Git Bash tar is GNU tar, no zip);
+      Darwin delegates to scripts/build-ffmpeg-macos.sh.
+    * scripts/build-ffmpeg-macos.sh: from-source static GPL build (x264 +
+      libass chain + ffmpeg, --enable-gpl --enable-libx264 --enable-libass).
+      UNVERIFIED on this Windows box; exercised in CI on macos-14 at Step 12.
+    * tauri.conf.json externalBin now ["yt-dlp","ffmpeg","ffprobe"].
+    * Fetched the Windows ffmpeg/ffprobe locally. Verified the build has BOTH
+      --enable-libx264 and --enable-libass (burn-in + subtitle rendering ready).
+      binaries/ is gitignored — not committed (~143MB each).
+- src-tauri/src/ffmpeg.rs:
+    * extract_to_wav(app, src) -> temp WAV path. Runs
+      `ffmpeg -hide_banner -nostdin -y -i <src> -vn -ac 1 -ar 16000
+       -c:a pcm_s16le <tmp.wav>` via std::process::Command (CREATE_NO_WINDOW on
+      Windows). Validates the source exists, keeps a 20-line stderr tail for a
+      real error message on failure, deletes the WAV on failure.
+    * Reusable stderr progress parsing: field_seconds() pulls seconds from
+      "Duration: HH:MM:SS.ss" and "time=HH:MM:SS.ss" (handles the leading space
+      after Duration: and "time=N/A"). Emits "extract-progress" { percent }.
+      This is the shared time= parser the burn-in export (Step 9) will reuse.
+    * extract_audio Tauri command wraps it (async + spawn_blocking).
+    * Unit tests for parse_timestamp / field_seconds.
+
+VERIFIED:
+- cargo clippy => clean, 0 warnings.
+- cargo test --lib => 2 passed (timestamp + field parsing).
+- ffmpeg -version => has enable-libx264 AND enable-libass.
+- Ran the EXACT extraction command on a real 10s mp4; ffprobe confirms the WAV
+  is codec pcm_s16le, sample_rate 16000, channels 1 (mono) — exactly what
+  whisper.cpp needs. Duration/time= lines matched the parser on real output.
+
+STILL NEEDS LIVE-WINDOW TESTING:
+- Nothing user-facing for Step 4 alone. Will be exercised via the transcribe
+  flow in Step 5 (extract -> whisper), where extract-progress feeds the UI.
+
+NEXT: Step 5 (whisper.cpp sidecar + bundled ggml-base.en model; transcribe
+command: extract WAV -> whisper -> parsed segments, cancellable, progress).
+Paused here per the run-after-each-step cadence.

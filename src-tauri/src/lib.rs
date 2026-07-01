@@ -2,9 +2,11 @@
 //
 // Steps 1–2: scaffold + load/play a local video.
 // Step 3: URL import via the bundled yt-dlp sidecar.
+// Step 4: audio extraction (ffmpeg -> 16 kHz mono WAV) via the FFmpeg sidecar.
 // Transcription, styling, and export commands land in later steps (see
 // CLAUDE.md build plan).
 
+mod ffmpeg;
 mod sidecar;
 mod url_import;
 
@@ -19,6 +21,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             url_import::download_url,
             url_import::cancel_download,
+            ffmpeg::extract_audio,
         ])
         .run(tauri::generate_context!())
         .expect("error while running CaptionSmith");

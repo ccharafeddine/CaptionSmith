@@ -1,9 +1,12 @@
-name: Verify macOS burn-in (Intel)
+name: Verify macOS burn-in (Intel slice)
 
 # Manual check: download a published universal .dmg, extract its bundled ffmpeg,
-# and actually burn captions in on a real Intel Mac (macos-13 = x86_64) using the
-# binary's x86_64 slice. Confirms the universal build runs on Intel and that the
-# ffmpeg is self-contained (no Homebrew dylib dependencies).
+# and burn captions in using its x86_64 slice via Rosetta 2 (`arch -x86_64`),
+# which runs the actual Intel machine code. Confirms the Intel slice executes
+# and that the ffmpeg is self-contained (no Homebrew dylib dependencies).
+#
+# (Runs on the arm64 runner + Rosetta rather than a macos-13 Intel runner, which
+# GitHub has retired.)
 on:
   workflow_dispatch:
     inputs:
@@ -12,11 +15,11 @@ on:
         default: "v1.0.1"
 
 jobs:
-  intel-burn-in:
-    runs-on: macos-13 # Intel / x86_64
+  intel-slice-burn-in:
+    runs-on: macos-latest # arm64; we force the x86_64 slice under Rosetta
     steps:
-      - name: Show runner arch
-        run: uname -m # expect x86_64
+      - name: Install Rosetta 2
+        run: softwareupdate --install-rosetta --agree-to-license
 
       - name: Download the universal .dmg
         env:
@@ -31,7 +34,6 @@ jobs:
           hdiutil attach app.dmg -mountpoint /Volumes/CS -nobrowse -quiet
           cp -R "$(find /Volumes/CS -maxdepth 1 -name '*.app' | head -1)" ./CaptionSmith.app
           hdiutil detach /Volumes/CS -quiet
-          # Drop the download quarantine so the CLI binaries can run.
           xattr -dr com.apple.quarantine ./CaptionSmith.app || true
           FF="$(find ./CaptionSmith.app -type f -name ffmpeg | head -1)"
           FP="$(find ./CaptionSmith.app -type f -name ffprobe | head -1)"
@@ -49,14 +51,19 @@ jobs:
             echo "::error::ffmpeg has a Homebrew dylib dependency"; exit 1
           fi
 
-      - name: Burn captions in (x86_64 slice, natively on Intel)
+      - name: Confirm the x86_64 slice runs
         run: |
-          # A tiny test clip.
-          "$FF" -hide_banner -y -f lavfi -i "testsrc=size=640x360:rate=30:duration=2" \
+          echo "ffmpeg x86_64 slice reports:"
+          arch -x86_64 "$FF" -hide_banner -version | head -1
+
+      - name: Burn captions in (x86_64 slice under Rosetta)
+        run: |
+          # A tiny test clip (built with the same x86_64 slice).
+          arch -x86_64 "$FF" -hide_banner -y -f lavfi -i "testsrc=size=640x360:rate=30:duration=2" \
             -f lavfi -i "sine=frequency=440:duration=2" \
             -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest in.mp4
-          # An ASS matching the app's boxed style (BorderStyle 3, libass + CoreText
-          # font resolution — no fontconfig).
+          # ASS matching the app's boxed style (BorderStyle 3; libass + CoreText
+          # font resolution, no fontconfig).
           {
             echo "[Script Info]"
             echo "ScriptType: v4.00+"
@@ -70,11 +77,11 @@ jobs:
             echo "Dialogue: 0,0:00:00.00,0:00:02.00,Default,,0,0,0,,HELLO INTEL"
           } > captions.ass
 
-          "$FF" -hide_banner -y -i in.mp4 -vf "ass=captions.ass" \
+          arch -x86_64 "$FF" -hide_banner -y -i in.mp4 -vf "ass=captions.ass" \
             -c:v libx264 -crf 18 -preset medium -c:a aac -b:a 192k captioned.mp4
 
-          echo "== probe the output =="
-          "$FP" -v error -show_entries stream=codec_name,codec_type,width,height \
+          echo "== probe the output (x86_64 ffprobe) =="
+          arch -x86_64 "$FP" -v error -show_entries stream=codec_name,codec_type,width,height \
             -of default=noprint_wrappers=1 captioned.mp4
           test -s captioned.mp4
-          echo "OK: burned-in captions on Intel."
+          echo "OK: x86_64 (Intel) slice burned in captions."

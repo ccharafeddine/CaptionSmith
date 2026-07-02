@@ -52,7 +52,7 @@ jobs:
       # and CMake. windows-latest already ships CMake + MSVC.
       - name: Install macOS build deps
         if: matrix.platform == 'macos-14'
-        run: brew install nasm pkg-config cmake
+        run: brew install nasm pkg-config cmake meson ninja
 
       - name: Install frontend dependencies
         run: npm ci

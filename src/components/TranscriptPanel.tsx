@@ -64,6 +64,8 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
   const [selected, setSelected] = createSignal<number | null>(null);
   const [showModels, setShowModels] = createSignal(false);
   let listEl: HTMLUListElement | undefined;
+  // Set when a caption is inserted, so its editor grabs focus on mount.
+  let focusNext = false;
 
   // Deselect whenever we leave the finished transcript (new run, error, reset).
   createEffect(() => {
@@ -91,6 +93,25 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
   const selectSegment = (i: number) => {
     setSelected(i);
     props.onSeek(transcript.segments[i].start);
+  };
+
+  // Insert a new (empty) caption at the playhead — for non-speech lines like
+  // "[laughs maniacally]" that transcription won't produce. Sorted into place,
+  // sized 2s but never overlapping the next caption, then opened for editing.
+  const addSegment = () => {
+    const list = transcript.segments;
+    const start = round(Math.max(0, props.currentTime()));
+    let idx = list.findIndex((s) => s.start > start);
+    if (idx < 0) idx = list.length;
+    const nextStart = idx < list.length ? list[idx].start : Infinity;
+    let end = Math.min(start + 2, nextStart);
+    if (end <= start) end = start + 0.5;
+    const seg = { start, end: round(end), text: "" };
+
+    focusNext = true;
+    setTranscript("segments", produce((l) => l.splice(idx, 0, seg)));
+    setSelected(idx);
+    props.onSeek(start);
   };
 
   const updateText = (i: number, text: string) =>
@@ -294,9 +315,23 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
       </Show>
 
       <Show when={status() === "done"}>
+        <div class="transcript-toolbar">
+          <span class="toolbar-count">
+            {transcript.segments.length}{" "}
+            {transcript.segments.length === 1 ? "caption" : "captions"}
+          </span>
+          <button class="ghost-btn tiny-btn" type="button" onClick={addSegment}>
+            + Add at playhead
+          </button>
+        </div>
+
         <Show
           when={transcript.segments.length > 0}
-          fallback={<p class="panel-hint empty-note">No speech was detected.</p>}
+          fallback={
+            <p class="panel-hint empty-note">
+              No speech detected. Use “+ Add at playhead” to add a caption.
+            </p>
+          }
         >
           <ul class="segment-list" ref={listEl}>
             <For each={transcript.segments}>
@@ -318,7 +353,14 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
                       <textarea
                         class="edit-text"
                         rows={2}
-                        ref={(el) => (el.value = seg.text)}
+                        placeholder="e.g. [laughs maniacally]"
+                        ref={(el) => {
+                          el.value = seg.text;
+                          if (focusNext && selected() === i()) {
+                            focusNext = false;
+                            el.focus();
+                          }
+                        }}
                         onInput={(e) => updateText(i(), e.currentTarget.value)}
                       />
 

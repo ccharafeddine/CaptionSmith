@@ -149,15 +149,18 @@ export default function App() {
   return (
     <div class="app" classList={{ "is-dragging": dragging() }}>
       <header class="topbar">
+        <div class="topbar-side" />
         <div class="brand">
           <span class="brand-mark">Caption</span>
           <span class="brand-mark brand-accent">Smith</span>
         </div>
-        <Show when={video()}>
-          <button class="ghost-btn" type="button" onClick={clearVideo}>
-            Clear
-          </button>
-        </Show>
+        <div class="topbar-side topbar-right">
+          <Show when={video()}>
+            <button class="ghost-btn" type="button" onClick={clearVideo}>
+              Clear
+            </button>
+          </Show>
+        </div>
       </header>
 
       <main class="main">

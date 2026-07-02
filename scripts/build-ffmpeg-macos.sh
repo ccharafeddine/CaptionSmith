@@ -81,8 +81,12 @@ build_chain() {
 
   echo "== [$ARCH] freetype =="
   tar -xf freetype.tar.xz -C "$B"
+  # Disable the optional deps freetype would otherwise pick up from Homebrew
+  # (brotli/harfbuzz/png) — those are single-arch dylibs that break the x86_64
+  # cross-link and make even the native build depend on Homebrew at runtime.
   ( cd "$B/freetype-$FREETYPE_VER" && ./configure --host="$HOST" --prefix="$PREFIX" \
       --enable-static --disable-shared \
+      --without-brotli --without-harfbuzz --without-png \
     && make -j"$JOBS" && make install )
 
   # HarfBuzz omitted (Meson-only, optional for libass; legacy shaper is fine for
@@ -90,8 +94,14 @@ build_chain() {
 
   echo "== [$ARCH] libass =="
   tar -xf libass.tar.xz -C "$B"
+  # Disable fontconfig (arm64-only Homebrew dylib) and harfbuzz; on macOS libass
+  # then uses the native CoreText provider (universal), plus our fontsdir for
+  # Syne. Keeps the static lib self-contained across both arches.
+  # (CoreText is auto-enabled on macOS and satisfies libass's font-provider
+  # requirement — no --disable-require-system-font-provider needed.)
   ( cd "$B/libass-$LIBASS_VER" && ./configure --host="$HOST" --prefix="$PREFIX" \
       --enable-static --disable-shared \
+      --disable-fontconfig --disable-harfbuzz \
     && make -j"$JOBS" && make install )
 
   echo "== [$ARCH] ffmpeg =="

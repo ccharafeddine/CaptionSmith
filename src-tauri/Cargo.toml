@@ -1,6 +1,6 @@
 [package]
 name = "captionsmith"
-version = "1.0.0"
+version = "1.0.1"
 description = "Add captions to any video — transcribed on your own machine."
 authors = ["Chafic Charafeddine"]
 license = "GPL-3.0"

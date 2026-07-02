@@ -1,7 +1,7 @@
 {
   "name": "captionsmith",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Add captions to any video — transcribed on your own machine.",
   "license": "GPL-3.0",

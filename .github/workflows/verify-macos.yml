@@ -1,0 +1,80 @@
+name: Verify macOS burn-in (Intel)
+
+# Manual check: download a published universal .dmg, extract its bundled ffmpeg,
+# and actually burn captions in on a real Intel Mac (macos-13 = x86_64) using the
+# binary's x86_64 slice. Confirms the universal build runs on Intel and that the
+# ffmpeg is self-contained (no Homebrew dylib dependencies).
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to verify"
+        default: "v1.0.1"
+
+jobs:
+  intel-burn-in:
+    runs-on: macos-13 # Intel / x86_64
+    steps:
+      - name: Show runner arch
+        run: uname -m # expect x86_64
+
+      - name: Download the universal .dmg
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ inputs.tag }}" --repo "${{ github.repository }}" \
+            --pattern "*universal.dmg" --output app.dmg
+          ls -la app.dmg
+
+      - name: Extract the app + sidecars
+        run: |
+          hdiutil attach app.dmg -mountpoint /Volumes/CS -nobrowse -quiet
+          cp -R "$(find /Volumes/CS -maxdepth 1 -name '*.app' | head -1)" ./CaptionSmith.app
+          hdiutil detach /Volumes/CS -quiet
+          # Drop the download quarantine so the CLI binaries can run.
+          xattr -dr com.apple.quarantine ./CaptionSmith.app || true
+          FF="$(find ./CaptionSmith.app -type f -name ffmpeg | head -1)"
+          FP="$(find ./CaptionSmith.app -type f -name ffprobe | head -1)"
+          echo "FF=$FF" >> "$GITHUB_ENV"
+          echo "FP=$FP" >> "$GITHUB_ENV"
+          echo "found: $FF"
+
+      - name: Inspect (universal + no Homebrew deps)
+        run: |
+          echo "== lipo =="
+          lipo -info "$FF"
+          echo "== otool -L (must show no /opt/homebrew or /usr/local paths) =="
+          otool -L "$FF"
+          if otool -L "$FF" | grep -E "/opt/homebrew|/usr/local"; then
+            echo "::error::ffmpeg has a Homebrew dylib dependency"; exit 1
+          fi
+
+      - name: Burn captions in (x86_64 slice, natively on Intel)
+        run: |
+          # A tiny test clip.
+          "$FF" -hide_banner -y -f lavfi -i "testsrc=size=640x360:rate=30:duration=2" \
+            -f lavfi -i "sine=frequency=440:duration=2" \
+            -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest in.mp4
+          # An ASS matching the app's boxed style (BorderStyle 3, libass + CoreText
+          # font resolution — no fontconfig).
+          {
+            echo "[Script Info]"
+            echo "ScriptType: v4.00+"
+            echo "PlayResX: 640"
+            echo "PlayResY: 360"
+            echo "[V4+ Styles]"
+            echo "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding"
+            echo "Style: Default,Arial,40,&H00FFFFFF,&H00FFFFFF,&H00000000,&H66000000,-1,0,0,0,100,100,0,0,3,9,0,2,20,20,40,1"
+            echo "[Events]"
+            echo "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text"
+            echo "Dialogue: 0,0:00:00.00,0:00:02.00,Default,,0,0,0,,HELLO INTEL"
+          } > captions.ass
+
+          "$FF" -hide_banner -y -i in.mp4 -vf "ass=captions.ass" \
+            -c:v libx264 -crf 18 -preset medium -c:a aac -b:a 192k captioned.mp4
+
+          echo "== probe the output =="
+          "$FP" -v error -show_entries stream=codec_name,codec_type,width,height \
+            -of default=noprint_wrappers=1 captioned.mp4
+          test -s captioned.mp4
+          echo "OK: burned-in captions on Intel."

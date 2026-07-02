@@ -1,26 +1,20 @@
 # Docs / screenshots
 
-The project README embeds two screenshots that need to be captured from a
-running build (they can't be generated from source — they're pictures of the
-real app window). Drop them here with these exact names, then enable the
-commented `<img>` block near the top of the root `README.md`:
+The project README embeds three screenshots that walk through the workflow:
 
-- `screenshot-dark.png` — the app in the dark theme (the default identity)
-- `screenshot-light.png` — the app in the light theme
+- `screenshot-1-load.png` — a video loaded, before transcription
+- `screenshot-2-transcript.png` — after transcription, with the editable
+  transcript and a caption previewed over the video
+- `screenshot-3-style.png` — the Style tab with presets and controls
 
-## How to capture
+They're captured from the running app (they're pictures of the real window, so
+they can't be generated from source).
+
+## Refreshing them
 
 1. Run the app: `npm run tauri dev`.
-2. Load a short video and **Transcribe** it, then pick a caption style so the
-   frame shows the whole workflow: the player with the live caption overlay
-   (ideally the **Bold social** or **Word highlight** preset so captions are
-   prominent), the editable transcript on the right, and the export bar.
-3. Capture the window:
-   - **macOS:** `Cmd+Shift+4`, then press `Space` and click the window.
-   - **Windows:** `Alt+PrintScreen` (active window), or Snipping Tool.
-4. Save as `docs/screenshot-dark.png`.
-5. Switch your OS appearance to **Light**, relaunch (or let it re-theme), and
-   repeat to produce `docs/screenshot-light.png`.
-
-Aim for a similar crop/aspect for both so they sit evenly side by side. PNG,
-roughly 1200–1600px wide is plenty.
+2. Load a short video and reproduce each state (load → transcribe → Style tab).
+3. Capture the window (**Windows:** `Win+Shift+S` or `Alt+PrtScn`; **macOS:**
+   `Cmd+Shift+4` then `Space` and click the window).
+4. Save over the files above with the same names and a similar crop, then
+   commit. The README references them by path, so no markup changes are needed.

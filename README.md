@@ -33,16 +33,17 @@ for on-device transcription and a bundled GPL build of
 [FFmpeg](https://ffmpeg.org) (including `libx264` and `libass`) for audio
 extraction and the caption burn-in.
 
-<!--
-  Screenshots: capture from a running build (`npm run tauri dev`), save them as
-  docs/screenshot-dark.png and docs/screenshot-light.png (see docs/README.md),
-  then delete this comment and uncomment the block below.
-
-<p align="center">
-  <img src="docs/screenshot-dark.png" width="49%" alt="CaptionSmith, dark theme" />
-  <img src="docs/screenshot-light.png" width="49%" alt="CaptionSmith, light theme" />
+<p align="center"><b>Load a video</b><br />
+  <img src="docs/screenshot-1-load.png" width="90%" alt="A video loaded in CaptionSmith, ready to transcribe" />
 </p>
--->
+
+<p align="center"><b>Transcribe on-device, then edit the transcript</b><br />
+  <img src="docs/screenshot-2-transcript.png" width="90%" alt="CaptionSmith showing the transcript with a caption previewed over the video" />
+</p>
+
+<p align="center"><b>Style the captions over a live preview</b><br />
+  <img src="docs/screenshot-3-style.png" width="90%" alt="CaptionSmith's style panel with presets and controls" />
+</p>
 
 ## How captions work
 

@@ -117,9 +117,28 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
   const updateText = (i: number, text: string) =>
     setTranscript("segments", i, "text", text);
 
+  // Keep the list ordered by start time. Move segment `i` to its sorted spot,
+  // preserving object identity (so its open editor and buttons keep focus, and
+  // Solid moves the DOM node instead of remounting). Returns the new index.
+  const resortByStart = (i: number): number => {
+    let newIndex = i;
+    setTranscript(
+      "segments",
+      produce((l) => {
+        const [moved] = l.splice(i, 1);
+        let idx = l.findIndex((s) => s.start > moved.start);
+        if (idx < 0) idx = l.length;
+        l.splice(idx, 0, moved);
+        newIndex = idx;
+      }),
+    );
+    return newIndex;
+  };
+
   const nudgeStart = (i: number, d: number) => {
     const s = transcript.segments[i];
     setTranscript("segments", i, "start", round(clamp(s.start + d, 0, s.end - 0.05)));
+    setSelected(resortByStart(i));
   };
   const nudgeEnd = (i: number, d: number) => {
     const s = transcript.segments[i];
@@ -127,7 +146,17 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
   };
   const startToPlayhead = (i: number) => {
     const s = transcript.segments[i];
-    setTranscript("segments", i, "start", round(clamp(props.currentTime(), 0, s.end - 0.05)));
+    const ns = round(Math.max(0, props.currentTime()));
+    // Relocating the start past the current end: carry the end along so the
+    // caption keeps its length (otherwise start clamps to a stale end).
+    if (ns >= s.end - 0.05) {
+      const dur = Math.max(s.end - s.start, 0.5);
+      setTranscript("segments", i, "end", round(ns + dur));
+      setTranscript("segments", i, "start", ns);
+    } else {
+      setTranscript("segments", i, "start", round(clamp(ns, 0, s.end - 0.05)));
+    }
+    setSelected(resortByStart(i));
   };
   const endToPlayhead = (i: number) => {
     const s = transcript.segments[i];

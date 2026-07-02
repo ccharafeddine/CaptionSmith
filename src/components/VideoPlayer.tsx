@@ -33,6 +33,9 @@ export default function VideoPlayer(props: VideoPlayerProps) {
   const [current, setCurrent] = createSignal(0);
   const [duration, setDuration] = createSignal(0);
   const [scrubbing, setScrubbing] = createSignal(false);
+  // Intrinsic video size, so the caption overlay can hug the exact video
+  // rectangle (matching the burn-in, which sizes captions to the video height).
+  const [dims, setDims] = createSignal<{ w: number; h: number } | null>(null);
 
   const togglePlay = () => {
     if (!videoEl) return;
@@ -93,12 +96,23 @@ export default function VideoPlayer(props: VideoPlayerProps) {
   return (
     <div class="player">
       <div class="player-stage">
+        <div
+          class="video-frame"
+          style={{
+            "aspect-ratio": dims() ? `${dims()!.w} / ${dims()!.h}` : "16 / 9",
+          }}
+        >
         <video
           ref={videoEl}
           class="player-video"
           src={props.src}
           preload="metadata"
-          onLoadedMetadata={() => setDuration(videoEl.duration || 0)}
+          onLoadedMetadata={() => {
+            setDuration(videoEl.duration || 0);
+            if (videoEl.videoWidth && videoEl.videoHeight) {
+              setDims({ w: videoEl.videoWidth, h: videoEl.videoHeight });
+            }
+          }}
           onTimeUpdate={() => {
             if (!scrubbing()) setCurrent(videoEl.currentTime);
             props.onTime?.(videoEl.currentTime);
@@ -109,6 +123,7 @@ export default function VideoPlayer(props: VideoPlayerProps) {
           onClick={togglePlay}
         />
         {props.children}
+        </div>
       </div>
 
       <div class="player-controls">

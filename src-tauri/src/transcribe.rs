@@ -278,9 +278,15 @@ fn run_transcription(
         return Err("cancelled".into());
     }
 
-    // Phase 2: run whisper. It writes <out_base>.json.
+    // Phase 2: run whisper. `-of <base>` makes whisper write "<base>.json"
+    // (it APPENDS .json), so json_path must be base + ".json", not
+    // with_extension (which would replace ".out" and miss the file).
     let out_base = wav.with_extension("out");
-    let json_path = out_base.with_extension("json");
+    let json_path = {
+        let mut s = out_base.clone().into_os_string();
+        s.push(".json");
+        std::path::PathBuf::from(s)
+    };
 
     let cleanup = || {
         let _ = std::fs::remove_file(&wav);

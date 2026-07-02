@@ -12,6 +12,10 @@ src-tauri/gen/
 src-tauri/binaries/
 src-tauri/resources/models/
 
+# User exports. The default export dir is <Documents>/CaptionSmith/Exports,
+# which coincides with the repo root when the project lives in Documents.
+/Exports/
+
 # Editor / OS cruft
 .DS_Store
 Thumbs.db

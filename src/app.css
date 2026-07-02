@@ -522,6 +522,160 @@ body {
   margin-top: var(--s1);
 }
 
+.link-btn {
+  align-self: flex-start;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Model manager modal ---------- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s5);
+  background: color-mix(in srgb, var(--bg-base) 65%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  width: min(560px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s5);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-panel);
+  overflow-y: auto;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.modal-close {
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+}
+
+.modal-intro {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+
+.model-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s3);
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+}
+
+.model-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.model-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.model-meta {
+  font-size: 12px;
+  color: var(--fg-3);
+}
+
+.model-action {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.model-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.model-track {
+  width: 120px;
+}
+
+.model-pct {
+  font-size: 12px;
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+  min-width: 30px;
+  text-align: right;
+}
+
+.model-installed {
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+.model-action .tiny-btn {
+  flex: 0 0 auto;
+}
+
+.model-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.model-folder {
+  margin: 0;
+  font-size: 11px;
+  color: var(--fg-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ---------- Segment list + editor ---------- */
 
 .segment-list {
@@ -863,10 +1017,20 @@ body {
   overflow: hidden;
 }
 
-.player-video {
+/* The frame is sized to the video's aspect ratio and centered in the stage, so
+   it IS the letterboxed video rectangle. The overlay (position:absolute inset:0)
+   then hugs the video exactly, and its cqh units track the video height —
+   matching the burn-in, which sizes captions relative to the video height. */
+.video-frame {
+  position: relative;
   max-width: 100%;
   max-height: 100%;
+}
+
+.player-video {
   display: block;
+  width: 100%;
+  height: 100%;
   cursor: pointer;
 }
 

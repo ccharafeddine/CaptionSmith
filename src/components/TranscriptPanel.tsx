@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 import { produce } from "solid-js/store";
 
+import ModelManager from "./ModelManager";
 import { formatTime, formatPrecise } from "../format";
 import { isFormControl } from "../keys";
 import { style } from "../style";
@@ -61,6 +62,7 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(Math.max(n, lo), h
 
 export default function TranscriptPanel(props: TranscriptPanelProps) {
   const [selected, setSelected] = createSignal<number | null>(null);
+  const [showModels, setShowModels] = createSignal(false);
   let listEl: HTMLUListElement | undefined;
 
   // Deselect whenever we leave the finished transcript (new run, error, reset).
@@ -199,6 +201,14 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
               </For>
             </select>
           </label>
+
+          <button
+            class="link-btn"
+            type="button"
+            onClick={() => setShowModels(true)}
+          >
+            + Add languages (download a model)
+          </button>
 
           <label class="control-row">
             <span class="control-label">Language</span>
@@ -347,6 +357,10 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
             </For>
           </ul>
         </Show>
+      </Show>
+
+      <Show when={showModels()}>
+        <ModelManager onClose={() => setShowModels(false)} />
       </Show>
     </div>
   );

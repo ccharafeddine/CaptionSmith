@@ -164,16 +164,22 @@ fn dialogue(start: f64, end: f64, text: &str) -> String {
 pub fn to_ass(segments: &[Segment], style: &CaptionStyle, play_w: u32, play_h: u32) -> String {
     let fontsize = (style.font_size_pct / 100.0 * play_h as f64).round().max(1.0) as i64;
     let primary = ass_color(&style.primary_color);
-    let outline_col = "&H00000000";
-    let back_col = if style.boxed { "&H80000000" } else { "&H00000000" };
     let bold = if style.weight >= 700 { -1 } else { 0 };
-    let border_style = if style.boxed { 3 } else { 1 };
-    let outline = if style.boxed {
-        0
-    } else {
-        (style.outline * 0.02 * fontsize as f64).round().max(0.0) as i64
-    };
-    let shadow = if style.shadow { 2 } else { 0 };
+
+    // Box vs outline. libass fills the BorderStyle=3 box from OutlineColour and
+    // needs Outline > 0 (the box padding), so Outline=0 renders no box at all.
+    // A ~0.6-opacity black box (alpha 0x66; ASS alpha is inverted) matches the
+    // HTML preview's rgba(0,0,0,0.6). Otherwise: BorderStyle=1 outline (+shadow).
+    let (border_style, outline_col, back_col, outline, shadow): (i64, String, String, i64, i64) =
+        if style.boxed {
+            let box_col = "&H66000000".to_string();
+            let pad = (fontsize as f64 * 0.15).round().max(2.0) as i64;
+            (3, box_col.clone(), box_col, pad, 0)
+        } else {
+            let o = (style.outline * 0.02 * fontsize as f64).round().max(0.0) as i64;
+            let shadow = if style.shadow { 2 } else { 0 };
+            (1, "&H00000000".to_string(), "&H00000000".to_string(), o, shadow)
+        };
     let margin_v = ((100.0 - style.position) / 100.0 * play_h as f64).round().max(0.0) as i64;
     let margin_h = (style.safe_margin / 100.0 * play_w as f64).round().max(0.0) as i64;
     let max = style.max_words_per_line as usize;

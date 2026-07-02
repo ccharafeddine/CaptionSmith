@@ -8,6 +8,7 @@
 // The burn-in export lands in a later step (see CLAUDE.md build plan).
 
 mod ffmpeg;
+mod models;
 mod proc;
 mod sidecar;
 mod subtitles;
@@ -15,6 +16,7 @@ mod transcribe;
 mod url_import;
 
 use ffmpeg::BurnState;
+use models::ModelDownloadState;
 use tauri::Manager;
 use transcribe::TranscribeState;
 use url_import::DownloadState;
@@ -40,6 +42,7 @@ pub fn run() {
         .manage(DownloadState::default())
         .manage(TranscribeState::default())
         .manage(BurnState::default())
+        .manage(ModelDownloadState::default())
         .invoke_handler(tauri::generate_handler![
             url_import::download_url,
             url_import::cancel_download,
@@ -50,6 +53,10 @@ pub fn run() {
             subtitles::export_sidecar,
             ffmpeg::burn_in,
             ffmpeg::cancel_burn,
+            models::download_model,
+            models::cancel_model_download,
+            models::delete_model,
+            models::models_folder,
             ensure_export_dir,
         ])
         .run(tauri::generate_context!())

@@ -62,6 +62,10 @@ build_chain() {
   rm -rf "$PREFIX" "$B"
   mkdir -p "$PREFIX" "$B"
 
+  # PKG_CONFIG_LIBDIR (not just _PATH) *replaces* pkg-config's default search
+  # path, so configure can't discover Homebrew's arch-specific libs (harfbuzz,
+  # fontconfig, brotli, ...). The chain then links only our own static libs.
+  export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
   export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
   export CC="clang -arch $ARCH"
   export CFLAGS="-arch $ARCH -I$PREFIX/include -O2"

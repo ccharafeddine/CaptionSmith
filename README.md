@@ -171,11 +171,33 @@ re-encoder. The binaries are invoked as separate sidecar processes:
 - **Font**: Syne (SIL Open Font License), bundled in `src/assets/fonts` with its
   license file. No web-font requests are made.
 
+## Release notes
+
+### v1.0.1
+
+- macOS is now a **universal** build — runs natively on both Apple Silicon and
+  Intel.
+- Fixed macOS caption burn-in: the bundled FFmpeg is fully self-contained (no
+  hidden Homebrew dependencies), so burn-in works on any Mac. macOS users should
+  use 1.0.1 rather than 1.0.0.
+
+### v1.0.0
+
+- First release. Open a local video or paste a URL, transcribe on-device with
+  whisper.cpp, edit the transcript, style the captions over a live preview, and
+  export a burned-in `.mp4` or a `.srt` / `.vtt` / `.ass` sidecar — all
+  local-first. Ships as a Windows `.msi` / `.exe` and a macOS `.dmg`.
+
 ## Roadmap
 
-Possible next steps: more caption styles and per-word emphasis, speaker
-labels / diarization, GPU-accelerated transcription (Metal / CUDA), batch
-captioning, and an SRT-import path (bring your own transcript, style and burn it).
+- [x] Universal macOS build (Apple Silicon + Intel)
+- [x] In-app multilingual model downloader (~99 languages)
+- [x] Insert captions for non-speech lines (e.g. `[laughs]`)
+- [ ] More caption style presets and per-word emphasis effects
+- [ ] Speaker labels / diarization
+- [ ] GPU-accelerated transcription (Metal / CUDA)
+- [ ] Batch captioning of multiple files
+- [ ] SRT-import path (bring your own transcript, style and burn it)
 
 ## License
 

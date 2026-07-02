@@ -18,9 +18,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # arm64-only for now (Apple Silicon). A universal build needs an
+          # x86_64 cross-build of the FFmpeg chain + lipo — see
+          # build-ffmpeg-macos.sh. Tracked as a follow-up.
           - platform: macos-14
-            args: "--target universal-apple-darwin"
-            rust-targets: "aarch64-apple-darwin,x86_64-apple-darwin"
+            args: "--target aarch64-apple-darwin"
+            rust-targets: "aarch64-apple-darwin"
           - platform: windows-latest
             args: ""
             rust-targets: ""

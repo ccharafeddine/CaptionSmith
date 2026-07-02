@@ -85,7 +85,11 @@ tar -xf ffmpeg.tar.xz && ( cd "ffmpeg-$FFMPEG_VER" \
       --disable-doc --disable-debug --disable-ffplay \
   && make -j"$JOBS" )
 
-# host arch -> triple
+# host arch -> triple. This builds a single-arch FFmpeg for the runner's arch.
+# The release currently targets aarch64-apple-darwin (Apple Silicon). A true
+# universal build would build this chain a second time for x86_64 (cross,
+# -arch x86_64 / --enable-cross-compile) and `lipo -create` the two — a
+# follow-up; don't emit a mislabeled "universal" copy that is really one arch.
 case "$(uname -m)" in
   arm64) TRIPLE="aarch64-apple-darwin" ;;
   x86_64) TRIPLE="x86_64-apple-darwin" ;;
@@ -94,9 +98,8 @@ esac
 
 for bin in ffmpeg ffprobe; do
   cp "$WORK/ffmpeg-$FFMPEG_VER/$bin" "$BIN_DIR/$bin-$TRIPLE"
-  cp "$WORK/ffmpeg-$FFMPEG_VER/$bin" "$BIN_DIR/$bin-universal-apple-darwin"
-  chmod +x "$BIN_DIR/$bin-$TRIPLE" "$BIN_DIR/$bin-universal-apple-darwin"
-  echo "  -> $bin-$TRIPLE (+ universal copy)"
+  chmod +x "$BIN_DIR/$bin-$TRIPLE"
+  echo "  -> $bin-$TRIPLE"
 done
 
-echo "Done. (CI lipo-combines both arches into the true universal binary.)"
+echo "Done."

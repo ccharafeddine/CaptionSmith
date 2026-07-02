@@ -1,26 +1,27 @@
 #!/usr/bin/env bash
-# Build a static, portable GPL FFmpeg (+ ffprobe) from source on macOS, with
-# libx264 (the burn-in re-encoder) and libass (subtitle rendering) statically
-# linked so the result can be bundled without external dylib dependencies.
+# Build a static, portable, UNIVERSAL (arm64 + x86_64) GPL FFmpeg (+ ffprobe) on
+# macOS, with libx264 (the burn-in re-encoder) and libass (subtitle rendering)
+# statically linked so the result can be bundled without external dylibs.
 #
 # There is no suitable prebuilt static GPL FFmpeg for macOS, hence the source
-# build. On Windows/Linux, scripts/fetch-ffmpeg.sh grabs the BtbN static build
-# instead.
+# build. On Windows/Linux, scripts/fetch-ffmpeg.sh grabs the BtbN static build.
 #
-# Prereqs:  Xcode Command Line Tools, and `brew install nasm pkg-config`.
-# Output:   src-tauri/binaries/ffmpeg-<triple>  and  ffprobe-<triple>
-#           for aarch64-apple-darwin / x86_64-apple-darwin (host arch), plus a
-#           universal-apple-darwin copy. CI (release.yml, Step 12) builds both
-#           arches and lipo-combines them into the true universal binary.
+# The whole dependency chain is built twice — once for the runner's native arch
+# and once cross-compiled for the other — into per-arch prefixes, then the two
+# ffmpeg/ffprobe binaries are `lipo`-combined into a universal binary. That
+# universal binary is written under all three darwin triple names so a
+# `--target universal-apple-darwin` Tauri build finds a working sidecar for both
+# its x86_64 and aarch64 sub-builds.
 #
+# Prereqs:  Xcode Command Line Tools, `brew install nasm pkg-config`.
 # NOTE: unverified on this dev machine (Windows). Exercised in CI on macos-14.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="$REPO_ROOT/src-tauri/binaries"
 WORK="${FFMPEG_BUILD_DIR:-$REPO_ROOT/.ffmpeg-build}"
-PREFIX="$WORK/prefix"
 JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+NATIVE_ARCH="$(uname -m)" # arm64 on macos-14
 
 # Source pins (bump as needed).
 X264_REV="stable"
@@ -29,77 +30,100 @@ FREETYPE_VER="2.13.3"
 LIBASS_VER="0.17.3"
 FFMPEG_VER="7.1"
 
-mkdir -p "$BIN_DIR" "$WORK" "$PREFIX"
-export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
-export CFLAGS="-I$PREFIX/include -O2"
-export LDFLAGS="-L$PREFIX/lib"
+mkdir -p "$BIN_DIR" "$WORK"
 
 fetch() { # fetch <url> <tarball>
   [ -f "$WORK/$2" ] || curl -fL --retry 3 -o "$WORK/$2" "$1"
 }
 
+echo "== Fetching sources =="
 cd "$WORK"
-
-echo "== x264 (static, GPL) =="
-if [ ! -d x264 ]; then
-  git clone --depth 1 -b "$X264_REV" https://code.videolan.org/videolan/x264.git
-fi
-( cd x264 && ./configure --prefix="$PREFIX" --enable-static --disable-cli --disable-opencl \
-  && make -j"$JOBS" && make install )
-
-echo "== fribidi =="
+[ -d x264-src ] || git clone --depth 1 -b "$X264_REV" https://code.videolan.org/videolan/x264.git x264-src
 fetch "https://github.com/fribidi/fribidi/releases/download/v$FRIBIDI_VER/fribidi-$FRIBIDI_VER.tar.xz" "fribidi.tar.xz"
-tar -xf fribidi.tar.xz && ( cd "fribidi-$FRIBIDI_VER" \
-  && ./configure --prefix="$PREFIX" --enable-static --disable-shared --disable-docs \
-  && make -j"$JOBS" && make install )
-
-echo "== freetype =="
 fetch "https://download.savannah.gnu.org/releases/freetype/freetype-$FREETYPE_VER.tar.xz" "freetype.tar.xz"
-tar -xf freetype.tar.xz && ( cd "freetype-$FREETYPE_VER" \
-  && ./configure --prefix="$PREFIX" --enable-static --disable-shared \
-  && make -j"$JOBS" && make install )
-
-# NOTE: HarfBuzz is intentionally omitted. Modern HarfBuzz ships a Meson-only
-# build (no ./configure), and it's optional for libass — without it libass uses
-# its legacy shaper, which is fine for Latin/social captions (the v1 focus).
-# Re-add it via Meson later if complex-script (Arabic/Indic) burn-in is needed.
-
-echo "== libass =="
 fetch "https://github.com/libass/libass/releases/download/$LIBASS_VER/libass-$LIBASS_VER.tar.xz" "libass.tar.xz"
-tar -xf libass.tar.xz && ( cd "libass-$LIBASS_VER" \
-  && ./configure --prefix="$PREFIX" --enable-static --disable-shared \
-  && make -j"$JOBS" && make install )
-
-echo "== ffmpeg (GPL, static) =="
 fetch "https://ffmpeg.org/releases/ffmpeg-$FFMPEG_VER.tar.xz" "ffmpeg.tar.xz"
-tar -xf ffmpeg.tar.xz && ( cd "ffmpeg-$FFMPEG_VER" \
-  && ./configure \
+
+# build_chain <clang-arch> : builds the whole chain for one architecture into a
+# per-arch prefix, cross-compiling when it isn't the runner's native arch.
+build_chain() {
+  local ARCH="$1" # arm64 | x86_64
+  local HOST FF_ARCH CROSS
+  case "$ARCH" in
+    arm64) HOST="aarch64-apple-darwin"; FF_ARCH="aarch64" ;;
+    x86_64) HOST="x86_64-apple-darwin"; FF_ARCH="x86_64" ;;
+    *) echo "unknown arch $ARCH" >&2; exit 1 ;;
+  esac
+  CROSS=""
+  [ "$ARCH" = "$NATIVE_ARCH" ] || CROSS="--enable-cross-compile"
+
+  local PREFIX="$WORK/prefix-$ARCH"
+  local B="$WORK/build-$ARCH"
+  rm -rf "$PREFIX" "$B"
+  mkdir -p "$PREFIX" "$B"
+
+  export PKG_CONFIG_PATH="$PREFIX/lib/pkgconfig"
+  export CC="clang -arch $ARCH"
+  export CFLAGS="-arch $ARCH -I$PREFIX/include -O2"
+  export LDFLAGS="-arch $ARCH -L$PREFIX/lib"
+
+  echo "== [$ARCH] x264 =="
+  cp -R x264-src "$B/x264"
+  ( cd "$B/x264" && ./configure --prefix="$PREFIX" --host="$HOST" \
+      --enable-static --disable-cli --disable-opencl \
+    && make -j"$JOBS" && make install )
+
+  echo "== [$ARCH] fribidi =="
+  tar -xf fribidi.tar.xz -C "$B"
+  ( cd "$B/fribidi-$FRIBIDI_VER" && ./configure --host="$HOST" --prefix="$PREFIX" \
+      --enable-static --disable-shared --disable-docs \
+    && make -j"$JOBS" && make install )
+
+  echo "== [$ARCH] freetype =="
+  tar -xf freetype.tar.xz -C "$B"
+  ( cd "$B/freetype-$FREETYPE_VER" && ./configure --host="$HOST" --prefix="$PREFIX" \
+      --enable-static --disable-shared \
+    && make -j"$JOBS" && make install )
+
+  # HarfBuzz omitted (Meson-only, optional for libass; legacy shaper is fine for
+  # Latin/social captions). Re-add via Meson if complex-script shaping is needed.
+
+  echo "== [$ARCH] libass =="
+  tar -xf libass.tar.xz -C "$B"
+  ( cd "$B/libass-$LIBASS_VER" && ./configure --host="$HOST" --prefix="$PREFIX" \
+      --enable-static --disable-shared \
+    && make -j"$JOBS" && make install )
+
+  echo "== [$ARCH] ffmpeg =="
+  tar -xf ffmpeg.tar.xz -C "$B"
+  ( cd "$B/ffmpeg-$FFMPEG_VER" && ./configure \
       --prefix="$PREFIX" \
+      --arch="$FF_ARCH" --target-os=darwin $CROSS \
+      --cc="clang -arch $ARCH" \
       --pkg-config-flags="--static" \
-      --extra-cflags="-I$PREFIX/include" \
-      --extra-ldflags="-L$PREFIX/lib" \
-      --enable-gpl \
-      --enable-libx264 \
-      --enable-libass \
+      --extra-cflags="-arch $ARCH -I$PREFIX/include" \
+      --extra-ldflags="-arch $ARCH -L$PREFIX/lib" \
+      --enable-gpl --enable-libx264 --enable-libass \
       --enable-static --disable-shared \
       --disable-doc --disable-debug --disable-ffplay \
-  && make -j"$JOBS" )
+    && make -j"$JOBS" )
 
-# host arch -> triple. This builds a single-arch FFmpeg for the runner's arch.
-# The release currently targets aarch64-apple-darwin (Apple Silicon). A true
-# universal build would build this chain a second time for x86_64 (cross,
-# -arch x86_64 / --enable-cross-compile) and `lipo -create` the two — a
-# follow-up; don't emit a mislabeled "universal" copy that is really one arch.
-case "$(uname -m)" in
-  arm64) TRIPLE="aarch64-apple-darwin" ;;
-  x86_64) TRIPLE="x86_64-apple-darwin" ;;
-  *) echo "unknown arch $(uname -m)" >&2; exit 1 ;;
-esac
+  cp "$B/ffmpeg-$FFMPEG_VER/ffmpeg" "$WORK/ffmpeg-$ARCH"
+  cp "$B/ffmpeg-$FFMPEG_VER/ffprobe" "$WORK/ffprobe-$ARCH"
+}
 
+build_chain arm64
+build_chain x86_64
+
+echo "== lipo -> universal =="
 for bin in ffmpeg ffprobe; do
-  cp "$WORK/ffmpeg-$FFMPEG_VER/$bin" "$BIN_DIR/$bin-$TRIPLE"
-  chmod +x "$BIN_DIR/$bin-$TRIPLE"
-  echo "  -> $bin-$TRIPLE"
+  lipo -create "$WORK/$bin-arm64" "$WORK/$bin-x86_64" -output "$BIN_DIR/$bin-universal-apple-darwin"
+  # Name it for every darwin triple: each per-arch sub-build of a universal
+  # Tauri bundle looks up its own triple, and a universal binary works for both.
+  cp "$BIN_DIR/$bin-universal-apple-darwin" "$BIN_DIR/$bin-aarch64-apple-darwin"
+  cp "$BIN_DIR/$bin-universal-apple-darwin" "$BIN_DIR/$bin-x86_64-apple-darwin"
+  chmod +x "$BIN_DIR/$bin-"*apple-darwin
+  lipo -info "$BIN_DIR/$bin-universal-apple-darwin"
 done
 
 echo "Done."

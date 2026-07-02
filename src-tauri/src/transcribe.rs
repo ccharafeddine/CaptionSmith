@@ -84,14 +84,15 @@ fn resolve_model(app: &AppHandle, model: Option<&str>) -> Result<PathBuf, String
     };
 
     if let Some(name) = model.map(str::trim).filter(|m| !m.is_empty()) {
-        let direct = PathBuf::from(name);
-        if direct.is_absolute() && direct.exists() {
-            return Ok(direct);
-        }
-        if let Some(dir) = models_dir(app) {
-            let candidate = dir.join(name);
-            if candidate.exists() {
-                return Ok(candidate);
+        // Only accept a bare filename resolved inside the models folder — no
+        // path separators, no "..", no absolute paths. The UI only ever sends a
+        // filename; this keeps the command from reading arbitrary files.
+        if is_safe_model_name(name) {
+            if let Some(dir) = models_dir(app) {
+                let candidate = dir.join(name);
+                if candidate.exists() {
+                    return Ok(candidate);
+                }
             }
         }
         return Err(not_found());
@@ -112,6 +113,12 @@ fn resolve_model(app: &AppHandle, model: Option<&str>) -> Result<PathBuf, String
         return Ok(dev);
     }
     Err(not_found())
+}
+
+/// A user-supplied model must be a bare filename living in the models folder —
+/// no path separators, no "..", no absolute paths — so it can't escape the dir.
+fn is_safe_model_name(name: &str) -> bool {
+    !name.is_empty() && name != ".." && !name.contains(['/', '\\'])
 }
 
 /// Pull the integer percent from a whisper stderr line "... progress =  45%".
@@ -443,6 +450,27 @@ mod tests {
         assert_eq!(segs[0].end, 11.0);
         assert_eq!(segs[0].text, "Hello world.");
         assert!(segs[0].words.is_none());
+    }
+
+    #[test]
+    fn rejects_unsafe_model_names() {
+        assert!(is_safe_model_name("ggml-small.bin"));
+        assert!(!is_safe_model_name("../../etc/passwd"));
+        assert!(!is_safe_model_name("sub/dir/x.bin"));
+        assert!(!is_safe_model_name("..\\x.bin"));
+        assert!(!is_safe_model_name(".."));
+        assert!(!is_safe_model_name(""));
+    }
+
+    #[test]
+    fn skips_empty_segments() {
+        let json = r#"{"transcription":[
+            {"offsets":{"from":0,"to":1000},"text":"  "},
+            {"offsets":{"from":1000,"to":2000},"text":" Real."}
+        ]}"#;
+        let segs = parse_segments(json, false).unwrap();
+        assert_eq!(segs.len(), 1);
+        assert_eq!(segs[0].text, "Real.");
     }
 
     #[test]

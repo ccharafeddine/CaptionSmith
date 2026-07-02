@@ -27,6 +27,17 @@ const ALLOWED: &[&str] = &[
     "ggml-large-v3-turbo.bin",
 ];
 
+/// Only exact allowlisted filenames may be downloaded/deleted — this is what
+/// keeps `download_model` from being a fetch-any-URL primitive and blocks any
+/// path traversal (e.g. "../../foo") from ever reaching a filesystem join.
+fn is_allowed(file: &str) -> bool {
+    ALLOWED.contains(&file)
+}
+
+fn model_url(file: &str) -> String {
+    format!("{HF_BASE}{file}")
+}
+
 #[derive(Default)]
 pub struct ModelDownloadState {
     cancel: Arc<AtomicBool>,
@@ -59,7 +70,7 @@ pub fn models_folder(app: AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 pub fn delete_model(app: AppHandle, file: String) -> Result<(), String> {
-    if !ALLOWED.contains(&file.as_str()) {
+    if !is_allowed(&file) {
         return Err("Unknown model file.".into());
     }
     let path = models_dir(&app)?.join(&file);
@@ -83,7 +94,7 @@ pub async fn download_model(
     state: State<'_, ModelDownloadState>,
     file: String,
 ) -> Result<(), String> {
-    if !ALLOWED.contains(&file.as_str()) {
+    if !is_allowed(&file) {
         return Err("Unknown model file.".into());
     }
     let cancel = state.cancel.clone();
@@ -92,7 +103,7 @@ pub async fn download_model(
     let dir = models_dir(&app)?;
     let final_path = dir.join(&file);
     let part_path = dir.join(format!("{file}.part"));
-    let url = format!("{HF_BASE}{file}");
+    let url = model_url(&file);
 
     let client = reqwest::Client::builder()
         .build()
@@ -164,4 +175,32 @@ pub async fn download_model(
         },
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn allowlist_accepts_known_models() {
+        assert!(is_allowed("ggml-base.bin"));
+        assert!(is_allowed("ggml-large-v3-turbo.bin"));
+    }
+
+    #[test]
+    fn allowlist_rejects_unknown_and_traversal() {
+        assert!(!is_allowed("ggml-huge.bin"));
+        assert!(!is_allowed("../../etc/passwd"));
+        assert!(!is_allowed("ggml-base.bin/../../x"));
+        assert!(!is_allowed(""));
+        assert!(!is_allowed("ggml-base.en.bin")); // bundled default isn't downloadable
+    }
+
+    #[test]
+    fn url_is_the_whisper_cpp_host() {
+        assert_eq!(
+            model_url("ggml-small.bin"),
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
+        );
+    }
 }

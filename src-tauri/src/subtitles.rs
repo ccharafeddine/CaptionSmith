@@ -61,11 +61,22 @@ fn ass_time(t: f64) -> String {
 
 // ---- SRT / VTT --------------------------------------------------------------
 
+/// Normalize caption text for a line-based cue: drop CRs and blank lines, which
+/// would otherwise terminate an SRT/VTT cue early. Multi-line captions are kept.
+fn cue_text(s: &str) -> String {
+    s.replace('\r', "")
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 pub fn to_srt(segments: &[Segment]) -> String {
     let mut out = String::new();
     let mut n = 1;
     for seg in segments {
-        let text = seg.text.trim();
+        let text = cue_text(&seg.text);
         if text.is_empty() {
             continue;
         }
@@ -83,7 +94,7 @@ pub fn to_srt(segments: &[Segment]) -> String {
 pub fn to_vtt(segments: &[Segment]) -> String {
     let mut out = String::from("WEBVTT\n\n");
     for seg in segments {
-        let text = seg.text.trim();
+        let text = cue_text(&seg.text);
         if text.is_empty() {
             continue;
         }
@@ -336,5 +347,78 @@ mod tests {
         // #45f2f2 -> &H00 BB GG RR = F2 F2 45
         assert_eq!(ass_color("#45f2f2"), "&H00F2F245");
         assert_eq!(ass_color("#ffffff"), "&H00FFFFFF");
+    }
+
+    #[test]
+    fn ass_color_defaults_on_bad_hex() {
+        assert_eq!(ass_color("#fff"), "&H00FFFFFF"); // too short -> white
+        assert_eq!(ass_color(""), "&H00FFFFFF");
+    }
+
+    #[test]
+    fn cue_text_drops_blank_lines() {
+        assert_eq!(cue_text("[laughs]\n\nmore"), "[laughs]\nmore");
+        assert_eq!(cue_text("  hi  "), "hi");
+        assert_eq!(cue_text("\r\n\r\n"), "");
+    }
+
+    #[test]
+    fn srt_normalizes_blank_lines() {
+        // A blank line inside a caption would terminate the cue early.
+        let out = to_srt(&[seg(0.0, 1.0, "line1\n\nline2")]);
+        assert!(out.contains("line1\nline2"));
+        assert!(!out.contains("line1\n\nline2"));
+    }
+
+    #[test]
+    fn ass_boxed_uses_semi_transparent_box() {
+        // style() is boxed: expect the 0x66-alpha box colour on the Style line.
+        let out = to_ass(&[seg(0.0, 1.0, "hi")], &style(), 1920, 1080);
+        assert!(out.contains("&H66000000"));
+    }
+
+    #[test]
+    fn ass_outline_has_no_box_colour() {
+        let mut st = style();
+        st.boxed = false;
+        st.outline = 5.0;
+        let out = to_ass(&[seg(0.0, 1.0, "hi")], &st, 1920, 1080);
+        assert!(!out.contains("&H66000000"));
+    }
+
+    #[test]
+    fn ass_wordhighlight_emits_one_event_per_word() {
+        use crate::transcribe::Word;
+        let wseg = Segment {
+            start: 0.0,
+            end: 2.0,
+            text: "and so".into(),
+            words: Some(vec![
+                Word {
+                    start: 0.0,
+                    end: 0.5,
+                    text: "and".into(),
+                },
+                Word {
+                    start: 0.5,
+                    end: 1.0,
+                    text: "so".into(),
+                },
+            ]),
+        };
+        let mut st = style();
+        st.preset = "wordHighlight".into();
+        st.boxed = false;
+
+        let out = to_ass(&[wseg], &st, 1920, 1080);
+        assert_eq!(out.matches("Dialogue:").count(), 2);
+        // The active word is wrapped in a colour override to the highlight colour.
+        assert!(out.contains("\\c&H00F2F245&"));
+    }
+
+    #[test]
+    fn ass_plain_segment_is_one_event() {
+        let out = to_ass(&[seg(0.0, 1.0, "hello world")], &style(), 1920, 1080);
+        assert_eq!(out.matches("Dialogue:").count(), 1);
     }
 }

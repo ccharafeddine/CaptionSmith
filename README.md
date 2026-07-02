@@ -71,10 +71,12 @@ longer; a progress bar and a Cancel button show while it runs.
   fetches the video with a bundled [yt-dlp](https://github.com/yt-dlp/yt-dlp),
   with a progress bar and Cancel while it downloads
 - **On-device transcription** with whisper.cpp — audio never leaves your machine.
-  Ships with an English model; drop in a larger or multilingual model for higher
-  accuracy, auto language detection, or **translate-to-English**
+  Ships with an English model, and a built-in **model manager** downloads
+  multilingual models (one model covers ~99 languages) for auto language
+  detection and **translate-to-English**
 - An **editable transcript** synced to the video: fix words, merge/split
-  segments, nudge timing, click a line to jump to it
+  segments, nudge timing, click a line to jump to it, and **insert a caption**
+  for non-speech lines like `[laughs]`
 - **Caption styles** — a clean bottom bar, a bold social look, and a
   **word-highlight (karaoke)** style where the active word pops, with controls
   for font, size, color, outline, position, and words-per-line, over a live
@@ -85,7 +87,7 @@ longer; a progress bar and a Cancel button show while it runs.
   created on first export — the save dialog opens there with the name prefilled,
   and you can still save anywhere
 - **Clear** the loaded video without opening another
-- Dark, minimal interface
+- Dark, minimal interface (follows your system's light/dark setting)
 - Native binaries for macOS and Windows
 
 ## Keyboard shortcuts

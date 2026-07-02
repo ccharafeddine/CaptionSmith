@@ -6,14 +6,7 @@
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
-    "core:webview:allow-internal-toggle-devtools",
     "dialog:allow-open",
-    "dialog:allow-save",
-    "fs:allow-read-file",
-    "fs:allow-read-text-file",
-    {
-      "identifier": "fs:scope",
-      "allow": [{ "path": "**" }]
-    }
+    "dialog:allow-save"
   ]
 }

@@ -109,6 +109,9 @@ fn run_download(
         .arg("best[ext=mp4]/best")
         .arg("-o")
         .arg(&out_tmpl)
+        // `--` ends option parsing so a URL that starts with "-" (or a crafted
+        // "--exec …" string pasted as a link) can't be treated as a yt-dlp flag.
+        .arg("--")
         .arg(&url)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -208,4 +211,17 @@ fn run_download(
     produced
         .map(|p| p.to_string_lossy().into_owned())
         .ok_or_else(|| "Download finished but produced no file.".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_download_percent() {
+        assert_eq!(parse_percent("[download]  12.3% of ~10.00MiB"), Some(12.3));
+        assert_eq!(parse_percent("[download] 100% of 5MiB"), Some(100.0));
+        assert_eq!(parse_percent("[download]   0.0% of 1KiB"), Some(0.0));
+        assert_eq!(parse_percent("no percent here"), None);
+    }
 }

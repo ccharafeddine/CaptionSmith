@@ -95,21 +95,36 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
     props.onSeek(transcript.segments[i].start);
   };
 
-  // Insert a new (empty) caption at the playhead — for non-speech lines like
-  // "[laughs maniacally]" that transcription won't produce. Sorted into place,
-  // sized 2s but never overlapping the next caption, then opened for editing.
+  // Insert a new (empty) caption — for non-speech lines like "[laughs
+  // maniacally]" that transcription won't produce. Goes right after the
+  // selected caption (beginning where it ends); with nothing selected, at the
+  // playhead. Sized 2s but never overlapping the next caption, then opened for
+  // editing.
   const addSegment = () => {
     const list = transcript.segments;
-    const start = round(Math.max(0, props.currentTime()));
-    let idx = list.findIndex((s) => s.start > start);
-    if (idx < 0) idx = list.length;
+    const sel = selected();
+
+    let idx: number;
+    let start: number;
+    if (sel !== null && sel < list.length) {
+      idx = sel + 1;
+      const nextStart = idx < list.length ? list[idx].start : Infinity;
+      start = round(Math.min(list[sel].end, nextStart));
+    } else {
+      start = round(Math.max(0, props.currentTime()));
+      idx = list.findIndex((s) => s.start > start);
+      if (idx < 0) idx = list.length;
+    }
+
     const nextStart = idx < list.length ? list[idx].start : Infinity;
     let end = Math.min(start + 2, nextStart);
     if (end <= start) end = start + 0.5;
-    const seg = { start, end: round(end), text: "" };
 
     focusNext = true;
-    setTranscript("segments", produce((l) => l.splice(idx, 0, seg)));
+    setTranscript(
+      "segments",
+      produce((l) => l.splice(idx, 0, { start, end: round(end), text: "" })),
+    );
     setSelected(idx);
     props.onSeek(start);
   };
@@ -350,7 +365,7 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
             {transcript.segments.length === 1 ? "caption" : "captions"}
           </span>
           <button class="ghost-btn tiny-btn" type="button" onClick={addSegment}>
-            + Add at playhead
+            Add caption
           </button>
         </div>
 
@@ -358,7 +373,7 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
           when={transcript.segments.length > 0}
           fallback={
             <p class="panel-hint empty-note">
-              No speech detected. Use “+ Add at playhead” to add a caption.
+              No speech detected. Use “Add caption” to add one.
             </p>
           }
         >

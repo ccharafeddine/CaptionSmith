@@ -557,3 +557,34 @@ CI VALIDATION (push a throwaway tag, watch Actions):
 SCREENSHOTS: capture dark + light from a live run into docs/ (see docs/README.md)
 and uncomment the block in README.md.
 ================================================================================
+
+--- CI validation (pushed test tag v0.0.1-test) ------------------------------
+Ran the release workflow for real. Findings + fixes:
+- WINDOWS (windows-latest): GREEN end-to-end on the first try. Static whisper-cli
+  built via MSVC, BtbN FFmpeg + yt-dlp fetched, Tauri bundled, and a DRAFT
+  release got both CaptionSmith_0.1.0_x64_en-US.msi and _x64-setup.exe attached.
+  The whole Windows release path is validated.
+- macOS (macos-14) took two fixes:
+  1. build-ffmpeg-macos.sh died at harfbuzz: modern HarfBuzz is Meson-only (no
+     ./configure). HarfBuzz is optional for libass -> dropped it (legacy shaper;
+     fine for Latin/social captions, the v1 focus). After this the WHOLE macOS
+     sidecar chain built from source: x264 + fribidi + freetype + libass +
+     ffmpeg (GPL, libx264+libass) AND the universal whisper-cli.
+  2. The universal Tauri build then failed on the x86_64 slice: the from-source
+     FFmpeg is host-arch (arm64) only, so ffmpeg-x86_64-apple-darwin was missing
+     (whisper-cli + yt-dlp are already universal; FFmpeg was the holdout).
+     DECISION: ship macOS as arm64-only for now (workflow ->
+     --target aarch64-apple-darwin). A universal/Intel build is a FOLLOW-UP:
+     cross-build the FFmpeg chain for x86_64 (-arch x86_64 / --enable-cross-
+     compile) and lipo the two into universal ffmpeg/ffprobe. README updated.
+- RESULT: after the two fixes the workflow is GREEN on BOTH runners. The draft
+  release for v0.0.1-test carries all three installers:
+    CaptionSmith_0.1.0_aarch64.dmg      (macOS, Apple Silicon)
+    CaptionSmith_0.1.0_x64_en-US.msi    (Windows)
+    CaptionSmith_0.1.0_x64-setup.exe    (Windows NSIS)
+  The release pipeline is validated end-to-end (builds + sidecars + bundle +
+  draft release + artifact upload). Real cutting of a release is just pushing a
+  real v* tag.
+- FOLLOW-UP (not blocking): universal macOS (Intel) via x86_64 FFmpeg cross-build
+  + lipo. Housekeeping: delete the throwaway v0.0.1-test tag + draft release, and
+  install the .dmg/.msi to smoke-test on real machines.

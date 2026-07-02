@@ -129,10 +129,21 @@ pub async fn download_model(
         // Throttle events to ~every 2 MB to avoid flooding the frontend.
         if received - last_emit >= 2_000_000 {
             last_emit = received;
-            let percent = total.map(|t| if t > 0 { received as f64 / t as f64 * 100.0 } else { 0.0 });
+            let percent = total.map(|t| {
+                if t > 0 {
+                    received as f64 / t as f64 * 100.0
+                } else {
+                    0.0
+                }
+            });
             let _ = app.emit(
                 "model-download-progress",
-                ModelProgress { file: file.clone(), percent, received, total },
+                ModelProgress {
+                    file: file.clone(),
+                    percent,
+                    received,
+                    total,
+                },
             );
         }
     }
@@ -145,7 +156,12 @@ pub async fn download_model(
 
     let _ = app.emit(
         "model-download-progress",
-        ModelProgress { file: file.clone(), percent: Some(100.0), received, total },
+        ModelProgress {
+            file: file.clone(),
+            percent: Some(100.0),
+            received,
+            total,
+        },
     );
     Ok(())
 }

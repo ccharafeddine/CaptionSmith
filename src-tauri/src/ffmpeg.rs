@@ -50,7 +50,11 @@ fn field_seconds(line: &str, key: &str) -> Option<f64> {
 fn unique_temp_path(prefix: &str, ext: &str) -> PathBuf {
     let id = AUDIO_COUNTER.fetch_add(1, Ordering::Relaxed);
     let mut p = std::env::temp_dir();
-    p.push(format!("captionsmith-{prefix}-{}-{}.{ext}", std::process::id(), id));
+    p.push(format!(
+        "captionsmith-{prefix}-{}-{}.{ext}",
+        std::process::id(),
+        id
+    ));
     p
 }
 
@@ -75,7 +79,11 @@ fn base_command(ffmpeg: &Path) -> Command {
 ///
 /// Registers the ffmpeg child with `cancel` so a cancel during this phase kills
 /// it. Returns Err("cancelled") if cancelled.
-pub fn extract_to_wav(app: &AppHandle, src: &str, cancel: &Cancellation) -> Result<PathBuf, String> {
+pub fn extract_to_wav(
+    app: &AppHandle,
+    src: &str,
+    cancel: &Cancellation,
+) -> Result<PathBuf, String> {
     if !Path::new(src).exists() {
         return Err(format!("Source file not found: {src}"));
     }
@@ -109,7 +117,13 @@ pub fn extract_to_wav(app: &AppHandle, src: &str, cancel: &Cancellation) -> Resu
             }
         }
         if let Some(t) = field_seconds(&line, "time=") {
-            let percent = total.map(|d| if d > 0.0 { (t / d * 100.0).min(100.0) } else { 0.0 });
+            let percent = total.map(|d| {
+                if d > 0.0 {
+                    (t / d * 100.0).min(100.0)
+                } else {
+                    0.0
+                }
+            });
             let _ = app.emit("extract-progress", ExtractProgress { percent });
         }
         // Keep a small tail for error reporting.
@@ -149,7 +163,12 @@ pub fn extract_to_wav(app: &AppHandle, src: &str, cancel: &Cancellation) -> Resu
         return Err(detail.trim().to_string());
     }
 
-    let _ = app.emit("extract-progress", ExtractProgress { percent: Some(100.0) });
+    let _ = app.emit(
+        "extract-progress",
+        ExtractProgress {
+            percent: Some(100.0),
+        },
+    );
     Ok(out)
 }
 
@@ -182,10 +201,14 @@ struct BurnProgress {
 /// Probe a video's pixel dimensions and duration via ffprobe.
 fn probe_video(ffprobe: &Path, src: &str) -> Result<(u32, u32, f64), String> {
     let mut cmd = Command::new(ffprobe);
-    cmd.arg("-v").arg("error")
-        .arg("-select_streams").arg("v:0")
-        .arg("-show_entries").arg("stream=width,height:format=duration")
-        .arg("-of").arg("default=noprint_wrappers=1")
+    cmd.arg("-v")
+        .arg("error")
+        .arg("-select_streams")
+        .arg("v:0")
+        .arg("-show_entries")
+        .arg("stream=width,height:format=duration")
+        .arg("-of")
+        .arg("default=noprint_wrappers=1")
         .arg(src)
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
@@ -254,7 +277,17 @@ pub async fn burn_in(
     cancel.reset();
 
     tauri::async_runtime::spawn_blocking(move || {
-        run_burn(&app, &cancel, &ffmpeg, &ffprobe, font.as_deref(), &src, &segments, &style, &out)
+        run_burn(
+            &app,
+            &cancel,
+            &ffmpeg,
+            &ffprobe,
+            font.as_deref(),
+            &src,
+            &segments,
+            &style,
+            &out,
+        )
     })
     .await
     .map_err(|e| format!("task join: {e}"))?
@@ -308,14 +341,22 @@ fn run_burn(
     let vf = format!("ass={ass_name}:fontsdir=fonts");
     let mut cmd = base_command(ffmpeg);
     cmd.current_dir(&work)
-        .arg("-i").arg(src)
-        .arg("-vf").arg(&vf)
-        .arg("-c:v").arg("libx264")
-        .arg("-crf").arg("18")
-        .arg("-preset").arg("medium")
-        .arg("-c:a").arg("aac")
-        .arg("-b:a").arg("192k")
-        .arg("-movflags").arg("+faststart")
+        .arg("-i")
+        .arg(src)
+        .arg("-vf")
+        .arg(&vf)
+        .arg("-c:v")
+        .arg("libx264")
+        .arg("-crf")
+        .arg("18")
+        .arg("-preset")
+        .arg("medium")
+        .arg("-c:a")
+        .arg("aac")
+        .arg("-b:a")
+        .arg("192k")
+        .arg("-movflags")
+        .arg("+faststart")
         .arg(out);
 
     let mut child = cmd.spawn().map_err(|e| {
@@ -325,7 +366,11 @@ fn run_burn(
     let stderr = child.stderr.take().expect("piped stderr");
     cancel.set_child(child);
 
-    let mut total = if probed_dur > 0.0 { Some(probed_dur) } else { None };
+    let mut total = if probed_dur > 0.0 {
+        Some(probed_dur)
+    } else {
+        None
+    };
     let mut tail: Vec<String> = Vec::new();
     for line in BufReader::new(stderr).lines().map_while(Result::ok) {
         if total.is_none() {
@@ -334,7 +379,13 @@ fn run_burn(
             }
         }
         if let Some(t) = field_seconds(&line, "time=") {
-            let percent = total.map(|d| if d > 0.0 { (t / d * 100.0).min(100.0) } else { 0.0 });
+            let percent = total.map(|d| {
+                if d > 0.0 {
+                    (t / d * 100.0).min(100.0)
+                } else {
+                    0.0
+                }
+            });
             let _ = app.emit("burn-progress", BurnProgress { percent });
         }
         tail.push(line);
@@ -368,14 +419,21 @@ fn run_burn(
         let detail = tail
             .iter()
             .rev()
-            .find(|l| l.to_lowercase().contains("error") || l.contains("Invalid") || l.contains("failed"))
+            .find(|l| {
+                l.to_lowercase().contains("error") || l.contains("Invalid") || l.contains("failed")
+            })
             .cloned()
             .unwrap_or_else(|| "ffmpeg could not burn in the captions.".to_string());
         return Err(detail.trim().to_string());
     }
 
     cleanup();
-    let _ = app.emit("burn-progress", BurnProgress { percent: Some(100.0) });
+    let _ = app.emit(
+        "burn-progress",
+        BurnProgress {
+            percent: Some(100.0),
+        },
+    );
     Ok(())
 }
 

@@ -35,7 +35,12 @@ pub struct CaptionStyle {
 
 fn hms(t: f64) -> (i64, i64, i64, i64) {
     let ms = (t.max(0.0) * 1000.0).round() as i64;
-    (ms / 3_600_000, (ms / 60_000) % 60, (ms / 1000) % 60, ms % 1000)
+    (
+        ms / 3_600_000,
+        (ms / 60_000) % 60,
+        (ms / 1000) % 60,
+        ms % 1000,
+    )
 }
 
 fn srt_time(t: f64) -> String {
@@ -97,7 +102,9 @@ pub fn to_vtt(segments: &[Segment]) -> String {
 /// Sanitize transcript text for an ASS field: neutralize override braces and
 /// backslashes so nothing in the transcript becomes a style override.
 fn ass_escape(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('{', "\\{").replace('}', "\\}")
+    s.replace('\\', "\\\\")
+        .replace('{', "\\{")
+        .replace('}', "\\}")
 }
 
 fn cased(s: &str, upper: bool) -> String {
@@ -162,7 +169,9 @@ fn dialogue(start: f64, end: f64, text: &str) -> String {
 /// Build a full ASS document from segments + style. `play_w`/`play_h` set the
 /// coordinate system (video WxH for burn-in; a 1920x1080 reference for sidecar).
 pub fn to_ass(segments: &[Segment], style: &CaptionStyle, play_w: u32, play_h: u32) -> String {
-    let fontsize = (style.font_size_pct / 100.0 * play_h as f64).round().max(1.0) as i64;
+    let fontsize = (style.font_size_pct / 100.0 * play_h as f64)
+        .round()
+        .max(1.0) as i64;
     let primary = ass_color(&style.primary_color);
     let bold = if style.weight >= 700 { -1 } else { 0 };
 
@@ -178,9 +187,17 @@ pub fn to_ass(segments: &[Segment], style: &CaptionStyle, play_w: u32, play_h: u
         } else {
             let o = (style.outline * 0.02 * fontsize as f64).round().max(0.0) as i64;
             let shadow = if style.shadow { 2 } else { 0 };
-            (1, "&H00000000".to_string(), "&H00000000".to_string(), o, shadow)
+            (
+                1,
+                "&H00000000".to_string(),
+                "&H00000000".to_string(),
+                o,
+                shadow,
+            )
         };
-    let margin_v = ((100.0 - style.position) / 100.0 * play_h as f64).round().max(0.0) as i64;
+    let margin_v = ((100.0 - style.position) / 100.0 * play_h as f64)
+        .round()
+        .max(0.0) as i64;
     let margin_h = (style.safe_margin / 100.0 * play_w as f64).round().max(0.0) as i64;
     let max = style.max_words_per_line as usize;
     let karaoke = style.preset == "wordHighlight";
@@ -268,7 +285,12 @@ mod tests {
     use super::*;
 
     fn seg(start: f64, end: f64, text: &str) -> Segment {
-        Segment { start, end, text: text.to_string(), words: None }
+        Segment {
+            start,
+            end,
+            text: text.to_string(),
+            words: None,
+        }
     }
 
     fn style() -> CaptionStyle {

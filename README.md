@@ -6,6 +6,12 @@
 
 <p align="center">Add captions to any video — transcribed on your own machine.</p>
 
+<p align="center">
+  <a href="https://github.com/ccharafeddine/CaptionSmith/actions/workflows/ci.yml">
+    <img src="https://github.com/ccharafeddine/CaptionSmith/actions/workflows/ci.yml/badge.svg" alt="CI" />
+  </a>
+</p>
+
 ---
 
 CaptionSmith is a small, fast desktop app for Mac and Windows. Open a local video

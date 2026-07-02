@@ -136,11 +136,23 @@ fn words_from_tokens(tokens: &[serde_json::Value]) -> Option<Vec<Word>> {
         if clean.is_empty() {
             continue;
         }
-        let from = tok.pointer("/offsets/from").and_then(|v| v.as_f64()).unwrap_or(0.0) / 1000.0;
-        let to = tok.pointer("/offsets/to").and_then(|v| v.as_f64()).unwrap_or(0.0) / 1000.0;
+        let from = tok
+            .pointer("/offsets/from")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0)
+            / 1000.0;
+        let to = tok
+            .pointer("/offsets/to")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0)
+            / 1000.0;
         let new_word = raw.starts_with(' ') || words.is_empty();
         if new_word {
-            words.push(Word { start: from, end: to, text: clean.to_string() });
+            words.push(Word {
+                start: from,
+                end: to,
+                text: clean.to_string(),
+            });
         } else if let Some(last) = words.last_mut() {
             last.text.push_str(clean);
             last.end = to;
@@ -163,18 +175,38 @@ fn parse_segments(json: &str, want_words: bool) -> Result<Vec<Segment>, String> 
 
     let mut segments = Vec::with_capacity(arr.len());
     for seg in arr {
-        let start = seg.pointer("/offsets/from").and_then(|x| x.as_f64()).unwrap_or(0.0) / 1000.0;
-        let end = seg.pointer("/offsets/to").and_then(|x| x.as_f64()).unwrap_or(0.0) / 1000.0;
-        let text = seg.get("text").and_then(|t| t.as_str()).unwrap_or("").trim().to_string();
+        let start = seg
+            .pointer("/offsets/from")
+            .and_then(|x| x.as_f64())
+            .unwrap_or(0.0)
+            / 1000.0;
+        let end = seg
+            .pointer("/offsets/to")
+            .and_then(|x| x.as_f64())
+            .unwrap_or(0.0)
+            / 1000.0;
+        let text = seg
+            .get("text")
+            .and_then(|t| t.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
         if text.is_empty() {
             continue;
         }
         let words = if want_words {
-            seg.get("tokens").and_then(|t| t.as_array()).and_then(|t| words_from_tokens(t))
+            seg.get("tokens")
+                .and_then(|t| t.as_array())
+                .and_then(|t| words_from_tokens(t))
         } else {
             None
         };
-        segments.push(Segment { start, end, text, words });
+        segments.push(Segment {
+            start,
+            end,
+            text,
+            words,
+        });
     }
     Ok(segments)
 }
@@ -294,12 +326,17 @@ fn run_transcription(
     };
 
     let mut cmd = std::process::Command::new(whisper);
-    cmd.arg("-m").arg(model)
-        .arg("-f").arg(&wav)
-        .arg("-of").arg(&out_base)
+    cmd.arg("-m")
+        .arg(model)
+        .arg("-f")
+        .arg(&wav)
+        .arg("-of")
+        .arg(&out_base)
         .arg("-pp")
-        .arg("-t").arg(threads().to_string())
-        .arg("-l").arg(language.unwrap_or("en"));
+        .arg("-t")
+        .arg(threads().to_string())
+        .arg("-l")
+        .arg(language.unwrap_or("en"));
     if word_timestamps {
         cmd.arg("-ojf"); // full JSON: per-token offsets for word reconstruction
     } else {
@@ -308,7 +345,9 @@ fn run_transcription(
     if translate {
         cmd.arg("-tr");
     }
-    cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -372,7 +411,10 @@ fn run_transcription(
 }
 
 fn threads() -> usize {
-    std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(8)
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(4)
+        .min(8)
 }
 
 #[cfg(test)]

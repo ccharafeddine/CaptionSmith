@@ -24,3 +24,6 @@ Thumbs.db
 # Env / secrets
 .env
 .env.*
+
+# Local throwaway test fixtures
+/sample-subtitles/

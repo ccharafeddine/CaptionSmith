@@ -15,12 +15,18 @@ use crate::transcribe::Segment;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CaptionStyle {
-    pub preset: String,
+    // Note: the frontend's `preset` field is intentionally not deserialized —
+    // rendering is driven by the concrete fields below (and `per_word`), not the
+    // preset's name. Serde ignores the extra incoming key.
     pub font: String,
     pub font_size_pct: f64,
     pub weight: u32,
     pub primary_color: String,
     pub highlight_color: String,
+    /// Per-word (karaoke) timing: emphasize each word as it's spoken.
+    pub per_word: bool,
+    /// How the active word is emphasized: "color" | "grow" | "underline".
+    pub emphasis: String,
     pub outline: f64,
     pub shadow: bool,
     #[serde(rename = "box")]
@@ -151,16 +157,42 @@ fn wrap(words: &[String], max: usize) -> String {
     out
 }
 
-/// Like `wrap`, but wraps word `active` in a highlight-then-reset colour run.
-fn wrap_highlight(words: &[String], active: usize, max: usize, pri: &str, hi: &str) -> String {
+/// ASS override tags that emphasize the active word, and the reset tags that
+/// restore the surrounding run. Every property set in `open` is undone in
+/// `close` so only the active word is affected.
+fn emphasis_tags(emphasis: &str, pri: &str, hi: &str) -> (String, String) {
+    match emphasis {
+        // Recolour + scale up ~18% (libass \fscx/\fscy are percentages).
+        "grow" => (
+            format!("{{\\c{hi}&\\fscx118\\fscy118}}"),
+            format!("{{\\c{pri}&\\fscx100\\fscy100}}"),
+        ),
+        // Recolour + underline.
+        "underline" => (format!("{{\\c{hi}&\\u1}}"), format!("{{\\c{pri}&\\u0}}")),
+        // "color" (default): recolour only.
+        _ => (format!("{{\\c{hi}&}}"), format!("{{\\c{pri}&}}")),
+    }
+}
+
+/// Like `wrap`, but emphasizes word `active` (colour / grow / underline) then
+/// resets, so only that word pops.
+fn wrap_highlight(
+    words: &[String],
+    active: usize,
+    max: usize,
+    pri: &str,
+    hi: &str,
+    emphasis: &str,
+) -> String {
     let per = max.max(1);
+    let (open, close) = emphasis_tags(emphasis, pri, hi);
     let mut out = String::new();
     for (i, w) in words.iter().enumerate() {
         if i > 0 {
             out.push_str(if i % per == 0 { "\\N" } else { " " });
         }
         if i == active {
-            out.push_str(&format!("{{\\c{hi}&}}{w}{{\\c{pri}&}}"));
+            out.push_str(&format!("{open}{w}{close}"));
         } else {
             out.push_str(w);
         }
@@ -211,7 +243,7 @@ pub fn to_ass(segments: &[Segment], style: &CaptionStyle, play_w: u32, play_h: u
         .max(0.0) as i64;
     let margin_h = (style.safe_margin / 100.0 * play_w as f64).round().max(0.0) as i64;
     let max = style.max_words_per_line as usize;
-    let karaoke = style.preset == "wordHighlight";
+    let karaoke = style.per_word;
 
     let mut s = String::new();
     s.push_str("[Script Info]\n");
@@ -251,7 +283,7 @@ pub fn to_ass(segments: &[Segment], style: &CaptionStyle, play_w: u32, play_h: u
                     if end <= start {
                         continue;
                     }
-                    let text = wrap_highlight(&escaped, i, max, &primary, &hi);
+                    let text = wrap_highlight(&escaped, i, max, &primary, &hi, &style.emphasis);
                     s.push_str(&dialogue(start, end, &text));
                 }
                 continue;
@@ -306,12 +338,13 @@ mod tests {
 
     fn style() -> CaptionStyle {
         CaptionStyle {
-            preset: "bottomBar".into(),
             font: "Syne".into(),
             font_size_pct: 5.0,
             weight: 600,
             primary_color: "#ffffff".into(),
             highlight_color: "#45f2f2".into(),
+            per_word: false,
+            emphasis: "color".into(),
             outline: 0.0,
             shadow: false,
             boxed: true,
@@ -407,13 +440,67 @@ mod tests {
             ]),
         };
         let mut st = style();
-        st.preset = "wordHighlight".into();
+        st.per_word = true;
         st.boxed = false;
 
         let out = to_ass(&[wseg], &st, 1920, 1080);
         assert_eq!(out.matches("Dialogue:").count(), 2);
         // The active word is wrapped in a colour override to the highlight colour.
         assert!(out.contains("\\c&H00F2F245&"));
+    }
+
+    fn wordhighlight_seg() -> Segment {
+        use crate::transcribe::Word;
+        Segment {
+            start: 0.0,
+            end: 1.0,
+            text: "go now".into(),
+            words: Some(vec![
+                Word {
+                    start: 0.0,
+                    end: 0.5,
+                    text: "go".into(),
+                },
+                Word {
+                    start: 0.5,
+                    end: 1.0,
+                    text: "now".into(),
+                },
+            ]),
+        }
+    }
+
+    #[test]
+    fn emphasis_grow_scales_the_active_word() {
+        let mut st = style();
+        st.per_word = true;
+        st.emphasis = "grow".into();
+        st.boxed = false;
+        let out = to_ass(&[wordhighlight_seg()], &st, 1920, 1080);
+        assert!(out.contains("\\fscx118\\fscy118")); // active word scaled up
+        assert!(out.contains("\\fscx100\\fscy100")); // and reset afterwards
+    }
+
+    #[test]
+    fn emphasis_underline_underlines_the_active_word() {
+        let mut st = style();
+        st.per_word = true;
+        st.emphasis = "underline".into();
+        st.boxed = false;
+        let out = to_ass(&[wordhighlight_seg()], &st, 1920, 1080);
+        assert!(out.contains("\\u1")); // underline on
+        assert!(out.contains("\\u0")); // underline reset
+    }
+
+    #[test]
+    fn per_word_false_never_emits_karaoke_even_with_words() {
+        // A word-timed segment under a non-per-word preset stays one plain event.
+        let mut st = style();
+        st.per_word = false;
+        st.emphasis = "grow".into(); // must be ignored when per_word is off
+        let out = to_ass(&[wordhighlight_seg()], &st, 1920, 1080);
+        assert_eq!(out.matches("Dialogue:").count(), 1);
+        assert!(!out.contains("\\fscx118"));
     }
 
     #[test]

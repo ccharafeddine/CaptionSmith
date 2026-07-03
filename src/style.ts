@@ -4,7 +4,17 @@
 
 import { createStore } from "solid-js/store";
 
-export type Preset = "bottomBar" | "boldSocial" | "wordHighlight";
+export type Preset =
+  | "bottomBar"
+  | "boldSocial"
+  | "cleanTop"
+  | "neon"
+  | "wordHighlight"
+  | "karaokePop";
+
+// How the active word is emphasized in a per-word (karaoke) style. All three are
+// expressible in both the HTML preview and the ASS burn-in.
+export type Emphasis = "color" | "grow" | "underline";
 
 export type CaptionStyle = {
   preset: Preset;
@@ -12,7 +22,11 @@ export type CaptionStyle = {
   fontSizePct: number; // caption height as % of video height
   weight: number; // font-weight
   primaryColor: string; // #rrggbb
-  highlightColor: string; // active-word color (word highlight)
+  highlightColor: string; // active-word color (per-word styles)
+  // Per-word (karaoke) timing: the active word is emphasized as it's spoken.
+  // Decoupled from `preset` so any preset can opt in and new ones can too.
+  perWord: boolean;
+  emphasis: Emphasis; // how the active word pops (per-word styles only)
   outline: number; // 0..10 (stroke em = outline * 0.02)
   shadow: boolean;
   box: boolean; // semi-transparent background behind lines
@@ -41,6 +55,8 @@ const PRESETS: Record<Preset, Omit<CaptionStyle, "preset">> = {
     weight: 600,
     primaryColor: "#ffffff",
     highlightColor: "#45f2f2",
+    perWord: false,
+    emphasis: "color",
     outline: 0,
     shadow: false,
     box: true,
@@ -55,6 +71,8 @@ const PRESETS: Record<Preset, Omit<CaptionStyle, "preset">> = {
     weight: 800,
     primaryColor: "#ffffff",
     highlightColor: "#45f2f2",
+    perWord: false,
+    emphasis: "color",
     outline: 5,
     shadow: true,
     box: false,
@@ -63,17 +81,73 @@ const PRESETS: Record<Preset, Omit<CaptionStyle, "preset">> = {
     uppercase: true,
     safeMargin: 8,
   },
+  // Small, unobtrusive line pinned near the top — for when the lower third is
+  // busy (lower-third graphics, a speaker's face).
+  cleanTop: {
+    font: SYNE,
+    fontSizePct: 4.5,
+    weight: 500,
+    primaryColor: "#ffffff",
+    highlightColor: "#45f2f2",
+    perWord: false,
+    emphasis: "color",
+    outline: 0,
+    shadow: false,
+    box: true,
+    position: 16,
+    maxWordsPerLine: 8,
+    uppercase: false,
+    safeMargin: 6,
+  },
+  // Bright on-brand cyan with a heavy outline — a loud, attention-grabbing look.
+  neon: {
+    font: SYNE,
+    fontSizePct: 8,
+    weight: 800,
+    primaryColor: "#45f2f2",
+    highlightColor: "#a974ff",
+    perWord: false,
+    emphasis: "color",
+    outline: 6,
+    shadow: true,
+    box: false,
+    position: 78,
+    maxWordsPerLine: 4,
+    uppercase: true,
+    safeMargin: 8,
+  },
+  // Karaoke: the active word recolors (cyan) as it's spoken.
   wordHighlight: {
     font: SYNE,
     fontSizePct: 8,
     weight: 800,
     primaryColor: "#ffffff",
     highlightColor: "#45f2f2",
+    perWord: true,
+    emphasis: "color",
     outline: 4,
     shadow: true,
     box: false,
     position: 74,
     maxWordsPerLine: 4,
+    uppercase: true,
+    safeMargin: 8,
+  },
+  // Karaoke with a bigger punch: the active word grows and recolors (violet) —
+  // the modern TikTok/Reels caption "pop".
+  karaokePop: {
+    font: SYNE,
+    fontSizePct: 8.5,
+    weight: 800,
+    primaryColor: "#ffffff",
+    highlightColor: "#a974ff",
+    perWord: true,
+    emphasis: "grow",
+    outline: 4,
+    shadow: true,
+    box: false,
+    position: 74,
+    maxWordsPerLine: 3,
     uppercase: true,
     safeMargin: 8,
   },

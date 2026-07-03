@@ -330,8 +330,8 @@ binaries are invoked as separate sidecar processes:
 
 ## Roadmap
 
-v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1 and 2 are
-**shipped**; item 3 is next.
+v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1–3 are
+**shipped**; item 4 (GPU transcription) is next.
 
 1. **Settings gearwheel + update-check + model management.** ✅ Shipped. A gearwheel top-right
    of the header opens a settings panel (logo stays centered, 3-column grid). It
@@ -347,8 +347,13 @@ v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1 and 2 are
    cue settings); imported cues have no word-level timings, so word-highlight
    falls back to plain wrapping. Triggered from the transcript panel's "Import
    .srt / .vtt" button; no whisper model required.
-3. **More caption style presets + per-word emphasis.** Additional presets and
-   per-word emphasis effects on top of the three v1 styles.
+3. **More caption style presets + per-word emphasis.** ✅ Shipped. Six presets
+   now (added Clean top, Neon, Karaoke pop). Karaoke behavior was decoupled from
+   the literal `wordHighlight` preset name into a `perWord` flag on the style, so
+   any preset can be word-timed. Added a per-word `emphasis` mode (`color` /
+   `grow` / `underline`) applied to the active word in both the HTML preview and
+   the ASS burn-in (`\fscx/\fscy` grow, `\u1` underline). The Rust `CaptionStyle`
+   no longer reads `preset` at all — rendering is driven by concrete fields.
 4. **GPU-accelerated transcription (Metal / CUDA).** Stage carefully — it adds
    per-platform build complexity (whisper.cpp build flags, CI matrix). Keep the
    CPU path as the portable default.

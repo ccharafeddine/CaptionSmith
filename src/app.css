@@ -1054,11 +1054,14 @@ body {
 }
 
 .caption-word {
-  transition: color 0.05s linear;
+  /* inline-block so the active-word "grow" transform renders (and transitions)
+     without disturbing inline layout. */
+  display: inline-block;
+  transition: color 0.05s linear, transform 0.08s ease;
 }
 
 .caption-word.active {
-  /* color set inline from the style's highlight color */
+  /* color / transform / underline set inline from the style's emphasis */
 }
 
 /* ---------- Style panel ---------- */
@@ -1090,12 +1093,12 @@ body {
 }
 
 .preset-grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: var(--s2);
 }
 
 .preset-btn {
-  flex: 1;
   padding: var(--s2) var(--s1);
   font-family: var(--font-body);
   font-size: 12px;

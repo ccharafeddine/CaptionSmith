@@ -90,7 +90,7 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
     });
   });
 
-  const transcribe = () => runTranscribe(style.preset === "wordHighlight");
+  const transcribe = () => runTranscribe(style.perWord);
 
   // Bring-your-own transcript: pick an .srt/.vtt and load its cues as segments,
   // skipping whisper entirely. Replaces the current transcript on success.

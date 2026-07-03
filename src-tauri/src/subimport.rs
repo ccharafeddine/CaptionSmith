@@ -249,12 +249,13 @@ mod integration {
 
     fn style() -> CaptionStyle {
         CaptionStyle {
-            preset: "bottomBar".into(),
             font: "Syne".into(),
             font_size_pct: 5.0,
             weight: 600,
             primary_color: "#ffffff".into(),
             highlight_color: "#45f2f2".into(),
+            per_word: false,
+            emphasis: "color".into(),
             outline: 0.0,
             shadow: false,
             boxed: true,
@@ -333,7 +334,7 @@ mod integration {
         assert!(segs[0].words.is_none());
 
         let mut st = style();
-        st.preset = "wordHighlight".into();
+        st.per_word = true;
         st.boxed = false;
         let out = to_ass(&segs, &st, 1920, 1080);
 

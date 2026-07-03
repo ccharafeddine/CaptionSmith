@@ -80,10 +80,11 @@ longer; a progress bar and a Cancel button show while it runs.
   for non-speech lines like `[laughs]`
 - **Bring your own transcript** — import an existing `.srt` or `.vtt` file to
   style and burn in, skipping transcription entirely
-- **Caption styles** — a clean bottom bar, a bold social look, and a
-  **word-highlight (karaoke)** style where the active word pops, with controls
-  for font, size, color, outline, position, and words-per-line, over a live
-  preview
+- **Caption styles** — six presets (bottom bar, bold social, clean top, neon,
+  word highlight, karaoke pop) with controls for font, size, color, outline,
+  position, and words-per-line, over a live preview. The **karaoke** styles pop
+  the active word as it's spoken, with a choice of **per-word emphasis**: recolor,
+  grow, or underline
 - **Burn-in export** to H.264/AAC `.mp4` with a real progress bar, **or** a
   **sidecar** `.srt` / `.vtt` / `.ass`
 - Exports default to an **Exports folder** (`<Documents>/CaptionSmith/Exports`),
@@ -202,7 +203,7 @@ Forward (in order):
 
 1. [x] Settings gearwheel + prompt-only update check + model management
 2. [x] SRT / VTT import — bring your own transcript, style it, burn it
-3. [ ] More caption style presets + per-word emphasis
+3. [x] More caption style presets + per-word emphasis
 4. [ ] GPU-accelerated transcription (Metal / CUDA) — staged, per-platform build work
 5. [ ] Batch captioning of multiple files
 6. [ ] Speaker labels / diarization (heaviest; last)

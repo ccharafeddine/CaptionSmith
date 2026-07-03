@@ -764,3 +764,68 @@ What still genuinely needs the live window (unchanged from the item-2 entry):
 the GUI click path — picking a file via the dialog, seeing cues render in the
 editor/overlay, scrubbing the preview, and a real burn-in producing a visible,
 in-sync .mp4. The engine underneath all of that is now covered by Rust tests.
+
+
+--- Roadmap item 3: more presets + per-word emphasis -------------------------
+DONE (code complete + gates green; needs live-window test — see below).
+
+Two deliverables: more caption style presets, and per-word emphasis effects.
+
+Design: decoupled karaoke behavior from the literal "wordHighlight" preset NAME.
+Karaoke was previously triggered by `preset === "wordHighlight"` in three places
+(overlay useWords, ASS to_ass, StylePanel gates) plus the transcribe word-timing
+flag. Replaced all of that with a `perWord: boolean` field on CaptionStyle, so
+ANY preset can be word-timed and new karaoke presets don't need special-casing.
+
+New field `emphasis: "color" | "grow" | "underline"` — how the active word pops:
+- color: recolor to highlightColor (the old behavior)
+- grow:  recolor + scale up (ASS \fscx118\fscy118; preview transform scale 1.18)
+- underline: recolor + underline (ASS \u1; preview text-decoration)
+Each ASS emphasis has explicit reset tags so only the active word is affected.
+
+Presets: 3 -> 6. Added:
+- Clean top: small, top-of-frame, boxed (position 16) — for busy lower thirds.
+- Neon: bright cyan (#45f2f2) primary, heavy outline, uppercase — loud/on-brand.
+- Karaoke pop: perWord + emphasis "grow", violet highlight (#a974ff), the modern
+  TikTok/Reels word-pop. (Word highlight stays the cyan color-only karaoke.)
+
+Frontend:
+- style.ts: Preset union + PRESETS extended; every preset now carries perWord +
+  emphasis. New Emphasis type exported.
+- CaptionOverlay.tsx: useWords() keys off style.perWord; activeWordStyle() applies
+  color/grow(scale)/underline. app.css: .caption-word is inline-block with a
+  transform transition so "grow" renders + animates.
+- StylePanel.tsx: 6 preset buttons (2-col grid now, .preset-grid); highlight
+  color + a new "Active word" emphasis <select> gated on style.perWord; the
+  "needs word timing" CTA keys off perWord.
+- TranscriptPanel.tsx: transcribe word-timing flag = style.perWord.
+
+Rust (subtitles.rs):
+- CaptionStyle gained per_word + emphasis; DROPPED the now-unused `preset` field
+  (serde ignores the extra incoming key) — rendering is driven purely by concrete
+  fields. karaoke = style.per_word. wrap_highlight takes the emphasis mode via a
+  new emphasis_tags() helper.
+- Tests: word-highlight test sets per_word; +3 new tests (grow scales, underline
+  underlines, per_word=false never emits karaoke even with words). Updated both
+  test style() helpers (subtitles + subimport integration) for the new fields.
+
+Docs: README caption-styles feature + roadmap; CLAUDE.md roadmap (items 1-3
+shipped, item 4 next).
+
+VERIFIED (all four gates green):
+- cargo fmt --check => clean
+- cargo clippy --all-targets -- -D warnings => clean (fixed dead_code from the
+  removed preset field by dropping the field)
+- cargo test => 44 passed (was 41; +3 emphasis tests)
+- npm run build => clean
+
+STILL NEEDS LIVE-WINDOW TESTING (run `npm run tauri dev`):
+- Cycle all 6 presets; confirm each looks right in the live preview (Clean top at
+  the top, Neon cyan+outline, Karaoke pop growing the active word in violet).
+- On a word-timed transcript, switch Active word between Color / Grow / Underline
+  and watch the active word change in the preview.
+- Burn-in each karaoke emphasis and confirm the ASS renders it (grow = word
+  scales, underline = word underlined) and stays in sync.
+- Confirm a non-per-word preset with a word-timed transcript renders plain (no
+  karaoke), and that switching to a per-word preset without word timing shows the
+  "Re-transcribe with word timing" CTA.

@@ -2,6 +2,7 @@ import { For, Show } from "solid-js";
 
 import {
   applyPreset,
+  type Emphasis,
   FONTS,
   type Preset,
   setStyle,
@@ -18,13 +19,22 @@ import {
 const PRESET_LABELS: { key: Preset; label: string }[] = [
   { key: "bottomBar", label: "Bottom bar" },
   { key: "boldSocial", label: "Bold social" },
+  { key: "cleanTop", label: "Clean top" },
+  { key: "neon", label: "Neon" },
   { key: "wordHighlight", label: "Word highlight" },
+  { key: "karaokePop", label: "Karaoke pop" },
+];
+
+const EMPHASIS_LABELS: { key: Emphasis; label: string }[] = [
+  { key: "color", label: "Color" },
+  { key: "grow", label: "Grow" },
+  { key: "underline", label: "Underline" },
 ];
 
 export default function StylePanel() {
-  // Word highlight needs per-word timings; offer to fetch them if missing.
+  // Per-word styles need per-word timings; offer to fetch them if missing.
   const needsWords = () =>
-    style.preset === "wordHighlight" &&
+    style.perWord &&
     status() === "done" &&
     transcript.segments.length > 0 &&
     !hasWords();
@@ -103,7 +113,7 @@ export default function StylePanel() {
             />
           </label>
 
-          <Show when={style.preset === "wordHighlight"}>
+          <Show when={style.perWord}>
             <label class="control-row">
               <span class="control-label">Highlight</span>
               <input
@@ -112,6 +122,21 @@ export default function StylePanel() {
                 value={style.highlightColor}
                 onInput={(e) => setStyle("highlightColor", e.currentTarget.value)}
               />
+            </label>
+
+            <label class="control-row">
+              <span class="control-label">Active word</span>
+              <select
+                class="select"
+                value={style.emphasis}
+                onChange={(e) =>
+                  setStyle("emphasis", e.currentTarget.value as Emphasis)
+                }
+              >
+                <For each={EMPHASIS_LABELS}>
+                  {(em) => <option value={em.key}>{em.label}</option>}
+                </For>
+              </select>
             </label>
           </Show>
 

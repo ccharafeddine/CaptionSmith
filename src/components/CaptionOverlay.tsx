@@ -26,7 +26,7 @@ export default function CaptionOverlay(props: CaptionOverlayProps) {
   });
 
   const useWords = () =>
-    style.preset === "wordHighlight" &&
+    style.perWord &&
     !!activeSegment()?.words &&
     activeSegment()!.words!.length > 0;
 
@@ -48,6 +48,16 @@ export default function CaptionOverlay(props: CaptionOverlayProps) {
     if (!useWords()) return false;
     const t = props.currentTime();
     return t >= tok.start && t < tok.end;
+  };
+
+  // Emphasis applied to the active word — mirrors the ASS burn-in (color / grow
+  // / underline). Grow uses a transform so neighbors don't reflow (a close
+  // approximation of libass's \fscx, which does advance-width).
+  const activeWordStyle = (): JSX.CSSProperties => {
+    const s: JSX.CSSProperties = { color: style.highlightColor };
+    if (style.emphasis === "grow") s["transform"] = "scale(1.18)";
+    if (style.emphasis === "underline") s["text-decoration"] = "underline";
+    return s;
   };
 
   const blockStyle = (): JSX.CSSProperties => {
@@ -82,11 +92,7 @@ export default function CaptionOverlay(props: CaptionOverlayProps) {
                     <span
                       class="caption-word"
                       classList={{ active: isActiveWord(tok) }}
-                      style={
-                        isActiveWord(tok)
-                          ? { color: style.highlightColor }
-                          : undefined
-                      }
+                      style={isActiveWord(tok) ? activeWordStyle() : undefined}
                     >
                       {display(tok.text)}{" "}
                     </span>

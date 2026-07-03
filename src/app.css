@@ -46,6 +46,26 @@ body {
 
 .topbar-right {
   justify-self: end;
+  gap: var(--s2);
+}
+
+/* Gearwheel: smaller than the default icon-btn, with an update dot. */
+.settings-btn {
+  position: relative;
+  width: 32px;
+  height: 32px;
+}
+
+.settings-btn.has-update::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  border: 1.5px solid var(--bg-base);
 }
 
 .brand {
@@ -687,6 +707,120 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ---------- Settings panel ---------- */
+
+.settings-modal {
+  gap: var(--s4);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.settings-section + .settings-section {
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border);
+}
+
+.settings-heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+.settings-about {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-version {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.settings-ver-num {
+  color: var(--accent-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-tagline {
+  font-size: 12px;
+  color: var(--fg-3);
+}
+
+.update-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}
+
+.update-status {
+  font-size: 13px;
+}
+
+.update-ok {
+  color: var(--fg-2);
+}
+
+.update-new {
+  color: var(--accent-2);
+  font-weight: 600;
+}
+
+.update-err {
+  color: var(--danger);
+}
+
+.update-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  align-items: flex-start;
+}
+
+.update-notes {
+  margin: 0;
+  width: 100%;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: var(--s3);
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.settings-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+
+.settings-toggle {
+  font-size: 13px;
+}
+
+/* Default-model picker inside the embedded model manager. */
+.model-default {
+  margin-bottom: var(--s1);
 }
 
 /* ---------- Transcript toolbar + segment list ---------- */

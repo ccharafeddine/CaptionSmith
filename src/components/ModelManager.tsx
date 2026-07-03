@@ -2,10 +2,21 @@ import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
-import { loadModels, models, modelName, setModelName } from "../transcription";
+import {
+  loadModels,
+  modelName,
+  models,
+  setModelName,
+} from "../transcription";
 
 type ModelManagerProps = {
-  onClose: () => void;
+  onClose?: () => void;
+  // When embedded (in the Settings panel) we render just the body — no overlay,
+  // head, or Esc handler; the host owns those. Standalone, we render the modal.
+  embedded?: boolean;
+  // Lets an embedding host block its own close while a download is in flight,
+  // so a reflex Esc can't orphan a multi-hundred-MB download.
+  onBusyChange?: (busy: boolean) => void;
 };
 
 // All multilingual (no ".en"): one model covers ~99 languages.
@@ -33,22 +44,26 @@ export default function ModelManager(props: ModelManagerProps) {
     void loadModels();
   });
 
-  // Esc closes the dialog (unless a download is running — then it's ignored so
-  // the user doesn't lose a big download by reflex).
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape" && !downloading()) {
-      e.preventDefault();
-      props.onClose();
-    }
-  };
-  window.addEventListener("keydown", onKeyDown);
-  onCleanup(() => window.removeEventListener("keydown", onKeyDown));
+  // Esc closes the standalone dialog (unless a download is running — then it's
+  // ignored so the user doesn't lose a big download by reflex). When embedded,
+  // the host owns Esc and we register nothing here.
+  if (!props.embedded) {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !downloading()) {
+        e.preventDefault();
+        props.onClose?.();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    onCleanup(() => window.removeEventListener("keydown", onKeyDown));
+  }
 
   const download = async (file: string) => {
     if (downloading()) return;
     setError("");
     setDownloading(file);
     setPercent(null);
+    props.onBusyChange?.(true);
 
     let unlisten: UnlistenFn | undefined;
     try {
@@ -68,6 +83,7 @@ export default function ModelManager(props: ModelManagerProps) {
       unlisten?.();
       setDownloading(null);
       setPercent(null);
+      props.onBusyChange?.(false);
     }
   };
 
@@ -83,99 +99,121 @@ export default function ModelManager(props: ModelManagerProps) {
     }
   };
 
-  return (
-    <div class="modal-overlay" onClick={() => !downloading() && props.onClose()}>
-      <div class="modal" onClick={(e) => e.stopPropagation()}>
-        <div class="modal-head">
-          <span class="modal-title">Whisper models</span>
-          <button
-            class="icon-btn modal-close"
-            type="button"
-            disabled={!!downloading()}
-            onClick={props.onClose}
-            aria-label="Close"
+  const Body = () => (
+    <>
+      <p class="modal-intro">
+        A multilingual model unlocks other languages and translate-to-English —
+        one model covers ~99 languages. Downloads run on your machine and stay
+        local. Larger = more accurate but slower.
+      </p>
+
+      <Show when={props.embedded}>
+        <label class="control-row model-default">
+          <span class="control-label">Default</span>
+          <select
+            class="select"
+            value={modelName()}
+            onChange={(e) => setModelName(e.currentTarget.value)}
           >
-            ✕
-          </button>
-        </div>
+            <For each={models()}>
+              {(m) => <option value={m.name}>{m.label}</option>}
+            </For>
+          </select>
+        </label>
+      </Show>
 
-        <p class="modal-intro">
-          A multilingual model unlocks other languages and translate-to-English —
-          one model covers ~99 languages. Downloads run on your machine and stay
-          local. Larger = more accurate but slower.
-        </p>
+      <ul class="model-list">
+        <For each={CATALOG}>
+          {(m) => (
+            <li class="model-row">
+              <div class="model-info">
+                <span class="model-name">{m.label}</span>
+                <span class="model-meta">
+                  {m.size} · {m.note}
+                </span>
+              </div>
 
-        <ul class="model-list">
-          <For each={CATALOG}>
-            {(m) => (
-              <li class="model-row">
-                <div class="model-info">
-                  <span class="model-name">{m.label}</span>
-                  <span class="model-meta">
-                    {m.size} · {m.note}
-                  </span>
-                </div>
-
-                <div class="model-action">
-                  <Show when={downloading() === m.file}>
-                    <div class="model-progress">
-                      <div class="progress-track model-track">
-                        <div
-                          class="progress-fill"
-                          classList={{ indeterminate: percent() === null }}
-                          style={percent() !== null ? { width: `${percent()}%` } : undefined}
-                        />
-                      </div>
-                      <span class="model-pct">
-                        {percent() !== null ? `${percent()!.toFixed(0)}%` : "…"}
-                      </span>
-                      <button class="ghost-btn tiny-btn" type="button" onClick={cancel}>
-                        Cancel
-                      </button>
+              <div class="model-action">
+                <Show when={downloading() === m.file}>
+                  <div class="model-progress">
+                    <div class="progress-track model-track">
+                      <div
+                        class="progress-fill"
+                        classList={{ indeterminate: percent() === null }}
+                        style={percent() !== null ? { width: `${percent()}%` } : undefined}
+                      />
                     </div>
-                  </Show>
+                    <span class="model-pct">
+                      {percent() !== null ? `${percent()!.toFixed(0)}%` : "…"}
+                    </span>
+                    <button class="ghost-btn tiny-btn" type="button" onClick={cancel}>
+                      Cancel
+                    </button>
+                  </div>
+                </Show>
 
-                  <Show when={downloading() !== m.file}>
-                    <Show
-                      when={installed(m.file)}
-                      fallback={
-                        <button
-                          class="primary-btn tiny-btn"
-                          type="button"
-                          disabled={!!downloading()}
-                          onClick={() => download(m.file)}
-                        >
-                          Download
-                        </button>
-                      }
-                    >
-                      <span class="model-installed">Installed</span>
+                <Show when={downloading() !== m.file}>
+                  <Show
+                    when={installed(m.file)}
+                    fallback={
                       <button
-                        class="ghost-btn tiny-btn danger"
+                        class="primary-btn tiny-btn"
                         type="button"
                         disabled={!!downloading()}
-                        onClick={() => remove(m.file)}
+                        onClick={() => download(m.file)}
                       >
-                        Delete
+                        Download
                       </button>
-                    </Show>
+                    }
+                  >
+                    <span class="model-installed">Installed</span>
+                    <button
+                      class="ghost-btn tiny-btn danger"
+                      type="button"
+                      disabled={!!downloading()}
+                      onClick={() => remove(m.file)}
+                    >
+                      Delete
+                    </button>
                   </Show>
-                </div>
-              </li>
-            )}
-          </For>
-        </ul>
+                </Show>
+              </div>
+            </li>
+          )}
+        </For>
+      </ul>
 
-        <Show when={error()}>
-          <p class="model-error">{error()}</p>
-        </Show>
+      <Show when={error()}>
+        <p class="model-error">{error()}</p>
+      </Show>
 
-        <Show when={folder()}>
-          <p class="model-folder" title={folder()}>
-            Saved to {folder()}
-          </p>
-        </Show>
+      <Show when={folder()}>
+        <p class="model-folder" title={folder()}>
+          Saved to {folder()}
+        </p>
+      </Show>
+    </>
+  );
+
+  return (
+    <Show when={!props.embedded} fallback={<Body />}>
+      <div class="modal-overlay" onClick={() => !downloading() && props.onClose?.()}>
+        <div class="modal" onClick={(e) => e.stopPropagation()}>
+          <div class="modal-head">
+            <span class="modal-title">Whisper models</span>
+            <button
+              class="icon-btn modal-close"
+              type="button"
+              disabled={!!downloading()}
+              onClick={props.onClose}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+          <Body />
+        </div>
       </div>
-    </div>
+    </Show>
   );
 }

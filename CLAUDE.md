@@ -330,10 +330,33 @@ binaries are invoked as separate sidecar processes:
 
 ## Roadmap
 
-Possible next steps: more caption style presets and per-word emphasis effects,
-speaker labels / diarization, GPU-accelerated transcription (Metal/CUDA),
-batch captioning of multiple files, and an SRT-import path (bring your own
-transcript, style + burn it). None of these are v1.
+v1 shipped. Post-v1 work is ordered — do them top to bottom:
+
+1. **Settings gearwheel + update-check + model management.** A gearwheel top-right
+   of the header opens a settings panel (logo stays centered, 3-column grid). It
+   holds a `check_for_update` (Rust/reqwest against the GitHub releases API,
+   numeric-tuple version compare, **prompt-only — never a silent install**), a
+   "check on startup" toggle in localStorage, and surfaces the existing
+   `list_models` / model-download logic (installed models, pick the default,
+   download more into `<AppData>/CaptionSmith/models`).
+2. **SRT / VTT import.** Bring-your-own transcript: load an existing subtitle
+   file, edit + style it, and burn it in (reuses the whole styling + burn-in
+   path, skipping transcription).
+3. **More caption style presets + per-word emphasis.** Additional presets and
+   per-word emphasis effects on top of the three v1 styles.
+4. **GPU-accelerated transcription (Metal / CUDA).** Stage carefully — it adds
+   per-platform build complexity (whisper.cpp build flags, CI matrix). Keep the
+   CPU path as the portable default.
+5. **Batch captioning.** Caption multiple files in one pass.
+6. **Speaker labels / diarization.** The heaviest item; do it last.
+
+Horizon (not scheduled): code-signing + notarization, done suite-wide across
+GifSmith / ClipSmith / CaptionSmith together.
+
+**Settings stay on-device.** The settings panel holds update-check, model
+management, default caption style, export folder, and theme — and **never**
+cloud or API keys. There is no cloud transcription path in CaptionSmith and one
+must not be added; on-device transcription is the whole reason the app exists.
 
 ## License
 

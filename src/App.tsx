@@ -8,7 +8,9 @@ import VideoPlayer from "./components/VideoPlayer";
 import SidePanel from "./components/SidePanel";
 import CaptionOverlay from "./components/CaptionOverlay";
 import ExportBar from "./components/ExportBar";
+import Settings from "./components/Settings";
 import { loadModels, setSource, transcript } from "./transcription";
+import { silentStartupCheck, updateAvailable } from "./updater";
 
 const VIDEO_EXTENSIONS = ["mp4", "mov", "mkv", "webm", "avi", "m4v"];
 
@@ -38,6 +40,8 @@ export default function App() {
   const [video, setVideo] = createSignal<LoadedVideo | null>(null);
   const [dragging, setDragging] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+
+  const [showSettings, setShowSettings] = createSignal(false);
 
   const [url, setUrl] = createSignal("");
   const [importing, setImporting] = createSignal(false);
@@ -127,6 +131,7 @@ export default function App() {
   onMount(async () => {
     window.addEventListener("keydown", onKeyDown);
     void loadModels();
+    void silentStartupCheck();
 
     // Tauri's native drag-drop; HTML5 dnd is suppressed by the webview.
     const unlisten = await getCurrentWebview().onDragDropEvent((event) => {
@@ -160,6 +165,16 @@ export default function App() {
               Clear
             </button>
           </Show>
+          <button
+            class="icon-btn settings-btn"
+            classList={{ "has-update": updateAvailable() }}
+            type="button"
+            onClick={() => setShowSettings(true)}
+            aria-label="Settings"
+            title="Settings"
+          >
+            <GearGlyph />
+          </button>
         </div>
       </header>
 
@@ -193,6 +208,10 @@ export default function App() {
         <div class="drag-overlay">
           <p>Release to load</p>
         </div>
+      </Show>
+
+      <Show when={showSettings()}>
+        <Settings onClose={() => setShowSettings(false)} />
       </Show>
     </div>
   );
@@ -265,6 +284,25 @@ export default function App() {
       </div>
     );
   }
+}
+
+function GearGlyph() {
+  // A proper cog: a toothed ring with a center hub (not radial spokes, which
+  // read as a sun). Each tooth is a short trapezoid around the rim.
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <g
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.7"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+        <circle cx="12" cy="12" r="3" />
+      </g>
+    </svg>
+  );
 }
 
 function CaptionGlyph() {

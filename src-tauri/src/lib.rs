@@ -13,6 +13,7 @@ mod proc;
 mod sidecar;
 mod subtitles;
 mod transcribe;
+mod updater;
 mod url_import;
 
 use ffmpeg::BurnState;
@@ -56,6 +57,8 @@ pub fn run() {
             models::cancel_model_download,
             models::delete_model,
             models::models_folder,
+            updater::check_for_update,
+            updater::open_release_page,
             ensure_export_dir,
         ])
         .run(tauri::generate_context!())

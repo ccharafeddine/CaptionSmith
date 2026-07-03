@@ -190,14 +190,27 @@ re-encoder. The binaries are invoked as separate sidecar processes:
 
 ## Roadmap
 
+Shipped:
+
 - [x] Universal macOS build (Apple Silicon + Intel)
 - [x] In-app multilingual model downloader (~99 languages)
 - [x] Insert captions for non-speech lines (e.g. `[laughs]`)
-- [ ] More caption style presets and per-word emphasis effects
-- [ ] Speaker labels / diarization
-- [ ] GPU-accelerated transcription (Metal / CUDA)
-- [ ] Batch captioning of multiple files
-- [ ] SRT-import path (bring your own transcript, style and burn it)
+
+Forward (in order):
+
+1. [ ] Settings gearwheel + prompt-only update check + model management
+2. [ ] SRT / VTT import — bring your own transcript, style it, burn it
+3. [ ] More caption style presets + per-word emphasis
+4. [ ] GPU-accelerated transcription (Metal / CUDA) — staged, per-platform build work
+5. [ ] Batch captioning of multiple files
+6. [ ] Speaker labels / diarization (heaviest; last)
+
+Horizon (not scheduled): code-signing + notarization, done across the whole
+Smith suite at once.
+
+Everything on this list stays on-device. Settings hold update-check, model
+management, default caption style, export folder, and theme — never cloud or API
+keys. There is no cloud transcription path and none will be added.
 
 ## License
 

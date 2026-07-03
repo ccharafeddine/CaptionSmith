@@ -588,3 +588,88 @@ Ran the release workflow for real. Findings + fixes:
 - FOLLOW-UP (not blocking): universal macOS (Intel) via x86_64 FFmpeg cross-build
   + lipo. Housekeeping: delete the throwaway v0.0.1-test tag + draft release, and
   install the .dmg/.msi to smoke-test on real machines.
+
+
+=== POST-V1 ===================================================================
+
+--- Roadmap forward recorded -------------------------------------------------
+DONE. Ordered post-v1 roadmap written into BOTH README.md ("Roadmap" section)
+and CLAUDE.md ("Roadmap" section):
+  1. Settings gearwheel + update-check + model management  (built this session)
+  2. SRT/VTT import (bring-your-own transcript)
+  3. More caption style presets + per-word emphasis
+  4. GPU-accelerated transcription (Metal/CUDA) — staged, per-platform build work
+  5. Batch captioning
+  6. Speaker labels / diarization (last, heaviest)
+  Horizon (not scheduled): code-signing + notarization, done suite-wide.
+Both docs restate the hard constraint: settings are on-device only (update-check,
+model management, default caption style, export folder, theme) — NEVER cloud/API
+keys, no cloud transcription path ever.
+
+
+--- Roadmap item 1: Settings gearwheel + updater + model management -----------
+DONE (code complete + gates green; needs live-window test — see below).
+
+Rust (src-tauri/src/updater.rs, registered in lib.rs):
+- check_for_update command: reqwest (rustls, already a dep) GET of
+  api.github.com/repos/ccharafeddine/CaptionSmith/releases/latest with
+  User-Agent + Accept: application/vnd.github+json. Network in Rust (not the
+  webview), so no CSP connect-src change needed.
+    * Parsed via resp.text() + serde_json::from_str — NOT resp.json(), because
+      the json() method needs reqwest's "json" feature which we don't enable
+      (kept the dependency/feature set untouched). This was the one clippy break;
+      fixed.
+    * Compares tag_name (leading 'v' stripped) against env!("CARGO_PKG_VERSION")
+      via a numeric-tuple parse (version_gt): component-wise integer compare,
+      shorter padded with zeros, so 1.10.0 > 1.9.0 (not lexical). Tolerates
+      "v1.2.3" and "1.2.3-beta". Returns { current, latest, is_newer, notes,
+      url }. 4 unit tests cover newer/equal/older/ragged-length/prefix cases.
+- open_release_page command: opens the release URL in the default browser
+  (Windows `cmd /C start`, macOS `open`, Linux `xdg-open`), restricted to
+  https://github.com/ URLs so it can't be abused as a launch-any-URL primitive.
+  PROMPT-ONLY: the app never downloads or installs an update itself.
+
+Frontend:
+- src/updater.ts: shared signals (checkState, updateInfo, checkError) + actions
+  checkForUpdate (user-initiated, surfaces all outcomes), silentStartupCheck
+  (opt-in, quiet on failure), updateAvailable(), openReleasePage(). "Check on
+  startup" persisted in localStorage key captionsmith:checkOnStartup, DEFAULT
+  OFF (a launch shouldn't phone home unless asked).
+- Gearwheel in the header top-right (App.tsx): the topbar is already a 3-col grid
+  (side / centered brand / side-right), so the logo stays centered. New
+  .settings-btn (icon-btn) with an inline gear SVG; a cyan dot badge
+  (.has-update::after) shows when updateAvailable(). App onMount now also fires
+  silentStartupCheck().
+- src/components/Settings.tsx: the settings modal (reuses .modal-overlay/.modal).
+  Sections: About (CaptionSmith vX.Y.Z via @tauri-apps/api/app getVersion() +
+  local-first tagline); Updates (Check-for-updates button -> checking /
+  up-to-date / available-with-notes + "Download from GitHub" + prompt-only note;
+  "Check for updates on startup" toggle); Whisper models (embedded ModelManager).
+  Esc / backdrop closes, but is BLOCKED while a model download is running so a
+  reflex close can't orphan a multi-hundred-MB download.
+- ModelManager.tsx refactored to be reusable: new `embedded` + `onBusyChange`
+  props. Embedded (in Settings) it renders just the body (intro + a Default-model
+  <select> bound to modelName + the download/delete catalog + folder), no
+  overlay/head/Esc — the host owns those. Standalone (still opened from the
+  TranscriptPanel "+ Add languages" link) it renders the full modal exactly as
+  before. onBusyChange lets Settings block close during a download.
+- Cargo.toml / tauri.conf.json version left at 1.0.1 (correct; not bumped).
+
+VERIFIED (all three gates green):
+- cargo clippy --all-targets -- -D warnings => clean (after the resp.json fix).
+- cargo test => 26 passed (incl. 4 new updater version-compare tests).
+- npm run build (tsc --noEmit + vite build) => clean, 0 errors.
+
+STILL NEEDS LIVE-WINDOW TESTING (run `npm run tauri dev`):
+- Gearwheel renders top-right, logo stays centered; opens the Settings panel.
+- "Check for updates": at v1.0.1 vs the live latest release, confirm the right
+  state (up-to-date if latest<=1.0.1, or "version X available" + notes +
+  Download opening the GitHub release page in the browser). Test offline too
+  (should show a clear error, not hang).
+- Toggle "Check on startup" on, restart the dev window, confirm the silent check
+  runs and (only if a newer release exists) the gear shows the cyan dot.
+- Model management inside Settings: Default picker switches the active model;
+  Download a model shows progress + blocks Settings close until done; Delete
+  works; folder line shows <AppData>/CaptionSmith/models.
+- Confirm the TranscriptPanel "+ Add languages" standalone model modal still
+  works unchanged.

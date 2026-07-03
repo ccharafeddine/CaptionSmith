@@ -264,8 +264,11 @@ pub fn list_models(app: AppHandle) -> Vec<ModelInfo> {
 /// Transcribe `src`. `language` is a whisper code ("en", "auto", ...);
 /// `translate` requests translate-to-English; `word_timestamps` requests
 /// per-word timings (slower, only for karaoke styles); `model` overrides the
-/// bundled default with a file in the models folder.
+/// bundled default with a file in the models folder; `gpu` uses GPU acceleration
+/// when the binary supports it (Metal on macOS) — when false we pass whisper's
+/// `-ng` to force CPU.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn transcribe(
     app: AppHandle,
     state: State<'_, TranscribeState>,
@@ -274,6 +277,7 @@ pub async fn transcribe(
     translate: bool,
     word_timestamps: bool,
     model: Option<String>,
+    gpu: bool,
 ) -> Result<Vec<Segment>, String> {
     let whisper = sidecar::resolve("whisper-cli")?;
     let model_path = resolve_model(&app, model.as_deref())?;
@@ -293,6 +297,7 @@ pub async fn transcribe(
             language.as_deref(),
             translate,
             word_timestamps,
+            gpu,
         )
     })
     .await
@@ -309,6 +314,7 @@ fn run_transcription(
     language: Option<&str>,
     translate: bool,
     word_timestamps: bool,
+    gpu: bool,
 ) -> Result<Vec<Segment>, String> {
     // Phase 1: extract the 16 kHz mono WAV (cancellable, emits extract-progress).
     let wav = ffmpeg::extract_to_wav(app, src, cancel)?;
@@ -351,6 +357,9 @@ fn run_transcription(
     }
     if translate {
         cmd.arg("-tr");
+    }
+    if !gpu {
+        cmd.arg("-ng"); // force CPU; harmless on CPU-only builds
     }
     cmd.stdin(Stdio::null())
         .stdout(Stdio::null())

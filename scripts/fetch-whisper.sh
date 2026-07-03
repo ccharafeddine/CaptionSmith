@@ -37,8 +37,15 @@ COMMON=(
 echo "== Building static whisper-cli ($WHISPER_TAG) =="
 case "$(uname -s)" in
   Darwin)
+    # Metal GPU acceleration (item 4a). GGML_METAL_EMBED_LIBRARY bakes the Metal
+    # shaders into the binary, so there's still no sibling .metallib to ship and
+    # the bundle layout is unchanged. ggml falls back to CPU at runtime when no
+    # Metal device is available, so this single universal binary stays safe on
+    # every Mac; the app forces CPU with whisper's `-ng` flag when the user turns
+    # GPU off. GGML_NATIVE stays OFF (from COMMON) for CPU portability.
     cmake -S "$SRC" -B "$SRC/build" "${COMMON[@]}" \
-      -DGGML_METAL=OFF \
+      -DGGML_METAL=ON \
+      -DGGML_METAL_EMBED_LIBRARY=ON \
       -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
     cmake --build "$SRC/build" --config Release -j --target whisper-cli
     CLI="$SRC/build/bin/whisper-cli"

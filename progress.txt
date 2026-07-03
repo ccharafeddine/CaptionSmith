@@ -840,3 +840,46 @@ fails to LAUNCH without its runtime, so on Windows the static CPU whisper-cli
 stays and the GPU sidecar ships alongside it with transparent CPU fallback.
 Full staged plan (build flags, CI, sidecar resolution, settings toggle, testing)
 written into the CLAUDE.md roadmap, item 4. No code changed.
+
+
+--- Roadmap item 4a: macOS Metal GPU acceleration ----------------------------
+DONE (app wiring code-complete + gates green; the Metal BUILD itself is only
+exercised on a macOS runner — see validation gap below).
+
+Build:
+- scripts/fetch-whisper.sh (Darwin branch): flipped GGML_METAL OFF -> ON and
+  added GGML_METAL_EMBED_LIBRARY=ON so the Metal shaders are baked into the
+  binary (no sibling .metallib, bundle layout unchanged). GGML_NATIVE stays OFF
+  (CPU portability). Still one universal binary; ggml falls back to CPU at
+  runtime when there's no Metal device, so it's safe on every Mac.
+
+App wiring (works cross-platform; the flag is a no-op on the CPU-only builds):
+- transcribe.rs: `transcribe` command gained a `gpu: bool` param, threaded into
+  run_transcription; when !gpu we pass whisper's `-ng` (force CPU). VERIFIED the
+  flag is real in the bundled whisper-cli: `--help` shows
+  "-ng, --no-gpu  disable GPU". #[allow(clippy::too_many_arguments)] added.
+- transcription.ts: persisted `gpuEnabled` signal (localStorage
+  captionsmith:gpu, DEFAULT ON = "Auto"); saveGpuPref() wrapper; passed as
+  `gpu` in the transcribe invoke.
+- Settings.tsx: new "Transcription" section with a "Use GPU acceleration when
+  available" toggle + note (Apple Silicon; falls back to CPU). Folds into the
+  item-1 settings panel, on-device.
+
+release.yml / ci.yml: NO change needed for 4a — macos-14 already has the Metal
+toolchain (full Xcode) and installs cmake; ci.yml fakes sidecars so it's
+unaffected.
+
+VERIFIED (all four gates green):
+- cargo fmt --check / clippy -D warnings => clean
+- cargo test => 44 passed
+- npm run build => clean
+- whisper-cli `-ng` flag existence confirmed against the local Windows binary.
+
+VALIDATION GAP (the honest caveat): whisper-cli is built ONLY by the release
+workflow on a v* tag; normal push CI (ci.yml) uses placeholder sidecars and does
+NOT compile whisper. So the Metal build (does it compile on macos-14? does the
+universal x86_64 slice build Metal? does the binary report a Metal device?) is
+UNPROVEN until either a release tag is pushed or a dedicated macOS build check is
+run. Options: (a) add a workflow_dispatch job that runs fetch-whisper.sh on
+macos-14 and asserts the binary compiles + `whisper-cli --help`/system_info loads
+Metal; (b) validate at the next real release. Recommended (a) before trusting 4a.

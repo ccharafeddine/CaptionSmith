@@ -1,0 +1,58 @@
+name: Verify whisper Metal build (macOS)
+
+# Manual check for item 4a. The release workflow is the ONLY other place
+# whisper-cli is compiled (normal CI uses placeholder sidecars), so this proves
+# the Metal build flags on the Apple Silicon runner before a release depends on
+# them: that whisper-cli builds as a universal binary with Metal linked in, and
+# that BOTH slices (arm64 native + x86_64 under Rosetta) actually execute.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-whisper-metal:
+    runs-on: macos-14 # Apple Silicon; full Xcode + Metal toolchain
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: brew install cmake
+
+      - name: Install Rosetta 2 (to run the x86_64 slice)
+        run: softwareupdate --install-rosetta --agree-to-license
+
+      # This check is about the binary, not the model — stub the model file so
+      # fetch-whisper.sh skips the ~148 MB download.
+      - name: Skip the model download
+        run: |
+          mkdir -p src-tauri/resources/models
+          : > src-tauri/resources/models/ggml-base.en.bin
+
+      - name: Build whisper-cli with Metal
+        run: bash scripts/fetch-whisper.sh
+
+      - name: Confirm universal + Metal-linked + both slices run
+        run: |
+          set -euo pipefail
+          CLI="src-tauri/binaries/whisper-cli-universal-apple-darwin"
+          test -f "$CLI"
+
+          echo "== lipo (must be universal: arm64 + x86_64) =="
+          lipo -info "$CLI"
+          lipo -info "$CLI" | grep -q "arm64"
+          lipo -info "$CLI" | grep -q "x86_64"
+
+          echo "== otool -L (Metal must be linked in) =="
+          otool -L "$CLI"
+          otool -L "$CLI" | grep -qi "Metal.framework"
+
+          # --help proves the slice loads (incl. the embedded Metal library) and
+          # executes; grepping our own flag confirms it's this build.
+          echo "== arm64 slice executes =="
+          arch -arm64 "$CLI" --help > help_arm.txt 2>&1 || true
+          grep -q -- "--no-gpu" help_arm.txt
+
+          echo "== x86_64 slice executes (Rosetta) =="
+          arch -x86_64 "$CLI" --help > help_x86.txt 2>&1 || true
+          grep -q -- "--no-gpu" help_x86.txt
+
+          echo "OK: universal whisper-cli built with Metal; both slices run."

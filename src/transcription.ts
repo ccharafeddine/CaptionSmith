@@ -43,6 +43,18 @@ export const [modelName, setModelName] = createSignal("");
 export const [language, setLanguage] = createSignal("auto");
 export const [translate, setTranslate] = createSignal(false);
 
+// GPU acceleration preference (item 4). Default on ("Auto"): the whisper binary
+// uses the GPU when built with support (Metal on macOS) and falls back to CPU on
+// its own; when off we pass `-ng` to force CPU. Persisted in localStorage.
+const GPU_KEY = "captionsmith:gpu";
+export const [gpuEnabled, setGpuEnabled] = createSignal(
+  localStorage.getItem(GPU_KEY) !== "false",
+);
+export function saveGpuPref(on: boolean) {
+  setGpuEnabled(on);
+  localStorage.setItem(GPU_KEY, on ? "true" : "false");
+}
+
 let currentSrc = "";
 
 export function isBusy(): boolean {
@@ -104,6 +116,7 @@ export async function runTranscribe(wordTimestamps: boolean) {
       translate: multi && translate(),
       wordTimestamps,
       model: modelName() || null,
+      gpu: gpuEnabled(),
     });
     setTranscript("segments", result);
     setHasWords(wordTimestamps);

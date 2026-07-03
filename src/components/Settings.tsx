@@ -2,6 +2,7 @@ import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import { getVersion } from "@tauri-apps/api/app";
 
 import ModelManager from "./ModelManager";
+import { gpuEnabled, saveGpuPref } from "../transcription";
 import {
   checkError,
   checkForUpdate,
@@ -130,6 +131,23 @@ export default function Settings(props: SettingsProps) {
             />
             <span>Check for updates on startup</span>
           </label>
+        </section>
+
+        {/* Transcription */}
+        <section class="settings-section">
+          <h3 class="settings-heading">Transcription</h3>
+          <label class="control-check settings-toggle">
+            <input
+              type="checkbox"
+              checked={gpuEnabled()}
+              onChange={(e) => saveGpuPref(e.currentTarget.checked)}
+            />
+            <span>Use GPU acceleration when available</span>
+          </label>
+          <p class="settings-note">
+            Speeds up transcription on supported hardware (Apple Silicon), and
+            falls back to CPU automatically. Turn off to always use the CPU.
+          </p>
         </section>
 
         {/* Models */}

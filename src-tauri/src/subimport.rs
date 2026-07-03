@@ -222,3 +222,122 @@ mod tests {
         assert_eq!(parse_timestamp("nonsense"), None);
     }
 }
+
+// Integration coverage: exercises the real `import_subtitles` command (file I/O
+// + error paths) and proves imported segments flow through the real exporters
+// and the burn-in ASS builder. This is the part of item 2 that would otherwise
+// only be checked by clicking through the live window.
+#[cfg(test)]
+mod integration {
+    use super::*;
+    use crate::subtitles::{to_ass, to_srt, to_vtt, CaptionStyle};
+    use std::fs;
+    use std::path::PathBuf;
+
+    /// A per-test temp file (distinct `name` per test avoids collisions when the
+    /// suite runs in parallel within one process).
+    fn temp_file(name: &str, body: &str) -> PathBuf {
+        let path =
+            std::env::temp_dir().join(format!("captionsmith-it-{}-{name}", std::process::id()));
+        fs::write(&path, body).unwrap();
+        path
+    }
+
+    fn path_str(p: &Path) -> String {
+        p.to_string_lossy().into_owned()
+    }
+
+    fn style() -> CaptionStyle {
+        CaptionStyle {
+            preset: "bottomBar".into(),
+            font: "Syne".into(),
+            font_size_pct: 5.0,
+            weight: 600,
+            primary_color: "#ffffff".into(),
+            highlight_color: "#45f2f2".into(),
+            outline: 0.0,
+            shadow: false,
+            boxed: true,
+            position: 88.0,
+            max_words_per_line: 8,
+            uppercase: false,
+            safe_margin: 6.0,
+        }
+    }
+
+    #[test]
+    fn command_reads_a_real_srt_file() {
+        let p = temp_file(
+            "basic.srt",
+            "1\n00:00:00,000 --> 00:00:01,500\nHello world\n\n\
+             2\n00:00:01,500 --> 00:00:03,000\nSecond line\n",
+        );
+        let segs = import_subtitles(path_str(&p)).unwrap();
+        fs::remove_file(&p).ok();
+        assert_eq!(segs.len(), 2);
+        assert_eq!(segs[0].text, "Hello world");
+        assert_eq!(segs[1].end, 3.0);
+    }
+
+    #[test]
+    fn command_rejects_wrong_extension() {
+        let p = temp_file("notes.txt", "1\n00:00:00,000 --> 00:00:01,000\nHi\n");
+        let err = import_subtitles(path_str(&p)).unwrap_err();
+        fs::remove_file(&p).ok();
+        assert!(err.contains(".srt or .vtt"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn command_errors_on_missing_file() {
+        let p =
+            std::env::temp_dir().join(format!("captionsmith-it-{}-absent.vtt", std::process::id()));
+        let err = import_subtitles(path_str(&p)).unwrap_err();
+        assert!(err.contains("Could not read"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn command_errors_when_file_has_no_cues() {
+        let p = temp_file("empty.vtt", "WEBVTT\n\nNOTE just a note\n");
+        let err = import_subtitles(path_str(&p)).unwrap_err();
+        fs::remove_file(&p).ok();
+        assert!(err.contains("No subtitle cues"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn imported_segments_round_trip_through_all_exporters() {
+        // Parse -> the very segments the exporters serialize on Save / burn-in.
+        let segs = parse_subtitles(
+            "1\n00:00:00,000 --> 00:00:01,500\nHello world\n\n\
+             2\n00:00:01,500 --> 00:00:03,000\nSecond line\n",
+        );
+
+        let out_srt = to_srt(&segs);
+        assert!(out_srt.contains("00:00:00,000 --> 00:00:01,500"));
+        assert!(out_srt.contains("Hello world"));
+
+        let out_vtt = to_vtt(&segs);
+        assert!(out_vtt.starts_with("WEBVTT"));
+        assert!(out_vtt.contains("00:00:01.500 --> 00:00:03.000"));
+
+        // The ASS the burn-in step feeds to ffmpeg: well-formed, one event/cue.
+        let out_ass = to_ass(&segs, &style(), 1920, 1080);
+        assert!(out_ass.contains("PlayResY: 1080"));
+        assert_eq!(out_ass.matches("Dialogue:").count(), 2);
+    }
+
+    #[test]
+    fn imported_wordless_cue_under_wordhighlight_stays_plain() {
+        // Subtitle files carry no word timings, so word-highlight must degrade to
+        // a plain line rather than break the burn-in.
+        let segs = parse_subtitles("WEBVTT\n\n00:00:00.000 --> 00:00:02.000\none two three\n");
+        assert!(segs[0].words.is_none());
+
+        let mut st = style();
+        st.preset = "wordHighlight".into();
+        st.boxed = false;
+        let out = to_ass(&segs, &st, 1920, 1080);
+
+        assert_eq!(out.matches("Dialogue:").count(), 1);
+        assert!(!out.contains("\\c&H00F2F245&")); // no per-word highlight override
+    }
+}

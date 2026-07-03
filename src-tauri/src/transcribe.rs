@@ -29,14 +29,14 @@ pub struct TranscribeState {
     cancel: Cancellation,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Word {
     pub start: f64,
     pub end: f64,
     pub text: String,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Segment {
     pub start: f64,
     pub end: f64,

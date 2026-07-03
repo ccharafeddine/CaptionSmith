@@ -735,3 +735,32 @@ STILL NEEDS LIVE-WINDOW TESTING (run `npm run tauri dev`):
   error, no crash.
 - With word-highlight selected on an imported (word-less) transcript, confirm it
   renders plain (no karaoke) rather than breaking.
+
+
+--- Item 2: added non-live integration coverage ------------------------------
+To validate as much as possible without clicking through the live window, added
+an `integration` test module to subimport.rs that exercises the REAL pipeline:
+- import_subtitles command against real temp files: reads a real .srt; rejects a
+  wrong extension (.txt); errors on a missing file; errors on a no-cue file.
+- Round-trip: parse an .srt, then feed the resulting segments through the actual
+  exporters — to_srt / to_vtt / to_ass — asserting timestamps, text, WEBVTT
+  header, PlayResY and one ASS Dialogue per cue. Proves imported segments are
+  fully compatible with sidecar export AND the burn-in ASS the burn step feeds
+  ffmpeg.
+- Word-highlight on a word-less imported cue produces one plain Dialogue with no
+  per-word colour override (confirms the documented graceful fallback).
+Derived Debug on Word/Segment (transcribe.rs) so tests can unwrap_err on
+Result<Vec<Segment>, _>. Fixed two clippy lints found only under -D warnings in
+test code (trim before split_whitespace earlier; &PathBuf -> &Path).
+
+Gate set is now fmt --check + clippy -D warnings + test + npm build (added
+`cargo fmt --check` locally after CI caught a rustfmt-only miss on item 1):
+- cargo fmt --check => clean
+- cargo clippy --all-targets -- -D warnings => clean
+- cargo test => 41 passed (was 35; +6 integration)
+- npm run build => clean
+
+What still genuinely needs the live window (unchanged from the item-2 entry):
+the GUI click path — picking a file via the dialog, seeing cues render in the
+editor/overlay, scrubbing the preview, and a real burn-in producing a visible,
+in-sync .mp4. The engine underneath all of that is now covered by Rust tests.

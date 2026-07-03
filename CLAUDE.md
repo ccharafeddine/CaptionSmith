@@ -330,18 +330,23 @@ binaries are invoked as separate sidecar processes:
 
 ## Roadmap
 
-v1 shipped. Post-v1 work is ordered — do them top to bottom:
+v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1 and 2 are
+**shipped**; item 3 is next.
 
-1. **Settings gearwheel + update-check + model management.** A gearwheel top-right
+1. **Settings gearwheel + update-check + model management.** ✅ Shipped. A gearwheel top-right
    of the header opens a settings panel (logo stays centered, 3-column grid). It
    holds a `check_for_update` (Rust/reqwest against the GitHub releases API,
    numeric-tuple version compare, **prompt-only — never a silent install**), a
    "check on startup" toggle in localStorage, and surfaces the existing
    `list_models` / model-download logic (installed models, pick the default,
    download more into `<AppData>/CaptionSmith/models`).
-2. **SRT / VTT import.** Bring-your-own transcript: load an existing subtitle
-   file, edit + style it, and burn it in (reuses the whole styling + burn-in
-   path, skipping transcription).
+2. **SRT / VTT import.** ✅ Shipped. Bring-your-own transcript: load an existing
+   subtitle file, edit + style it, and burn it in (reuses the whole styling +
+   burn-in path, skipping transcription). One block parser in `subimport.rs`
+   handles both formats (timestamps, VTT header/NOTE/STYLE blocks, inline tags,
+   cue settings); imported cues have no word-level timings, so word-highlight
+   falls back to plain wrapping. Triggered from the transcript panel's "Import
+   .srt / .vtt" button; no whisper model required.
 3. **More caption style presets + per-word emphasis.** Additional presets and
    per-word emphasis effects on top of the three v1 styles.
 4. **GPU-accelerated transcription (Metal / CUDA).** Stage carefully — it adds

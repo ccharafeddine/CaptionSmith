@@ -78,6 +78,8 @@ longer; a progress bar and a Cancel button show while it runs.
 - An **editable transcript** synced to the video: fix words, merge/split
   segments, nudge timing, click a line to jump to it, and **insert a caption**
   for non-speech lines like `[laughs]`
+- **Bring your own transcript** — import an existing `.srt` or `.vtt` file to
+  style and burn in, skipping transcription entirely
 - **Caption styles** — a clean bottom bar, a bold social look, and a
   **word-highlight (karaoke)** style where the active word pops, with controls
   for font, size, color, outline, position, and words-per-line, over a live
@@ -198,8 +200,8 @@ Shipped:
 
 Forward (in order):
 
-1. [ ] Settings gearwheel + prompt-only update check + model management
-2. [ ] SRT / VTT import — bring your own transcript, style it, burn it
+1. [x] Settings gearwheel + prompt-only update check + model management
+2. [x] SRT / VTT import — bring your own transcript, style it, burn it
 3. [ ] More caption style presets + per-word emphasis
 4. [ ] GPU-accelerated transcription (Metal / CUDA) — staged, per-platform build work
 5. [ ] Batch captioning of multiple files

@@ -89,8 +89,8 @@ pub async fn check_for_update() -> Result<UpdateInfo, String> {
         .text()
         .await
         .map_err(|e| format!("Couldn't read the release info: {e}"))?;
-    let json: serde_json::Value = serde_json::from_str(&body)
-        .map_err(|e| format!("Couldn't read the release info: {e}"))?;
+    let json: serde_json::Value =
+        serde_json::from_str(&body).map_err(|e| format!("Couldn't read the release info: {e}"))?;
 
     let tag = json
         .get("tag_name")

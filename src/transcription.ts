@@ -129,3 +129,14 @@ export async function runTranscribe(wordTimestamps: boolean) {
 export async function cancelTranscribe() {
   await invoke("cancel_transcribe");
 }
+
+/** Replace the transcript with cues imported from an .srt/.vtt file. No whisper
+ *  run, so there are no word-level timings (word-highlight falls back to plain).
+ *  Marks the transcript "done" so the editor + export appear immediately. */
+export async function runImport(path: string): Promise<void> {
+  const segments = await invoke<Segment[]>("import_subtitles", { path });
+  setTranscript("segments", segments);
+  setHasWords(false);
+  setErrorMsg("");
+  setStatus("done");
+}

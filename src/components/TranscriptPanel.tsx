@@ -8,6 +8,7 @@ import {
   Show,
 } from "solid-js";
 import { produce } from "solid-js/store";
+import { open } from "@tauri-apps/plugin-dialog";
 
 import ModelManager from "./ModelManager";
 import { formatTime, formatPrecise } from "../format";
@@ -23,6 +24,7 @@ import {
   models,
   multilingualSelected,
   percent,
+  runImport,
   runTranscribe,
   setLanguage,
   setModelName,
@@ -63,6 +65,8 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(Math.max(n, lo), h
 export default function TranscriptPanel(props: TranscriptPanelProps) {
   const [selected, setSelected] = createSignal<number | null>(null);
   const [showModels, setShowModels] = createSignal(false);
+  const [importing, setImporting] = createSignal(false);
+  const [importError, setImportError] = createSignal("");
   let listEl: HTMLUListElement | undefined;
   // Set when a caption is inserted, so its editor grabs focus on mount.
   let focusNext = false;
@@ -87,6 +91,29 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
   });
 
   const transcribe = () => runTranscribe(style.preset === "wordHighlight");
+
+  // Bring-your-own transcript: pick an .srt/.vtt and load its cues as segments,
+  // skipping whisper entirely. Replaces the current transcript on success.
+  const importSubtitles = async () => {
+    if (importing() || isBusy()) return;
+    setImportError("");
+    const selectedPath = await open({
+      multiple: false,
+      directory: false,
+      filters: [{ name: "Subtitles", extensions: ["srt", "vtt"] }],
+    });
+    if (typeof selectedPath !== "string") return;
+
+    setImporting(true);
+    try {
+      await runImport(selectedPath);
+      setSelected(null);
+    } catch (e) {
+      setImportError(String(e));
+    } finally {
+      setImporting(false);
+    }
+  };
 
   // --- editing operations ---------------------------------------------------
 
@@ -312,6 +339,27 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
           <button class="primary-btn control-go" type="button" onClick={transcribe}>
             {status() === "done" ? "Re-transcribe" : "Transcribe"}
           </button>
+
+          <div class="import-divider">
+            <span>or</span>
+          </div>
+
+          <button
+            class="ghost-btn control-import"
+            type="button"
+            disabled={importing()}
+            onClick={importSubtitles}
+          >
+            {importing() ? "Importing…" : "Import .srt / .vtt transcript"}
+          </button>
+          <p class="control-note">
+            Already have subtitles? Load them to style and burn in — no
+            transcription needed.
+          </p>
+
+          <Show when={importError()}>
+            <p class="panel-error">{importError()}</p>
+          </Show>
         </div>
       </Show>
 

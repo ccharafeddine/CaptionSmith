@@ -11,6 +11,7 @@ mod ffmpeg;
 mod models;
 mod proc;
 mod sidecar;
+mod subimport;
 mod subtitles;
 mod transcribe;
 mod updater;
@@ -51,6 +52,7 @@ pub fn run() {
             transcribe::cancel_transcribe,
             transcribe::list_models,
             subtitles::export_sidecar,
+            subimport::import_subtitles,
             ffmpeg::burn_in,
             ffmpeg::cancel_burn,
             models::download_model,

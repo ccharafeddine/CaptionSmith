@@ -673,3 +673,65 @@ STILL NEEDS LIVE-WINDOW TESTING (run `npm run tauri dev`):
   works; folder line shows <AppData>/CaptionSmith/models.
 - Confirm the TranscriptPanel "+ Add languages" standalone model modal still
   works unchanged.
+
+
+--- Roadmap item 2: SRT / VTT import (bring-your-own transcript) --------------
+DONE (code complete + gates green; needs live-window test — see below).
+
+Goal: load an existing .srt/.vtt, turn its cues into the same editable Segment
+list transcription produces, then style + export/burn exactly as usual — no
+whisper run, no model required.
+
+Rust (src-tauri/src/subimport.rs, registered in lib.rs):
+- import_subtitles(path) command: gates on .srt/.vtt extension, reads the file,
+  parses to Vec<Segment>, errors clearly on wrong ext / unreadable / no cues.
+- ONE block parser (parse_subtitles) handles BOTH formats — their cue shape is
+  identical (a "start --> end" line + text lines). It absorbs the differences:
+    * strips a UTF-8 BOM, normalizes \r\n and \r to \n
+    * splits on blank lines; skips any block without "-->" (WEBVTT header,
+      NOTE/STYLE/REGION, lone index/id lines)
+    * parse_timestamp accepts HH:MM:SS.mmm, MM:SS.mmm, SRT comma ms (,mmm), and
+      ignores trailing VTT cue settings ("... line:90% position:50%")
+    * strip_tags removes inline VTT tags (<v ...>, <c>, <b>, <00:00:01.000>)
+    * a cue identifier / SRT index line before the timing is dropped; text lines
+      after it are tag-stripped, blank-filtered, joined and whitespace-collapsed
+      into one clean line the styler re-wraps
+    * words = None (subtitle files carry no word timings), so word-highlight
+      falls back to plain wrapping — already handled in both the ASS builder and
+      the HTML overlay (verified: overlay's useWords() guards on words.length>0)
+    * sorts by start (the transcript editor assumes a start-ordered list)
+  9 unit tests: basic SRT, VTT w/ header+NOTE+cue-id, multiline+tag strip, cue
+  settings, MM:SS + BOM, out-of-order sort, empty/text-less skips, timestamp
+  forms.
+
+Frontend:
+- transcription.ts: runImport(path) invokes import_subtitles, sets the shared
+  transcript, hasWords=false, status="done" (so the editor + ExportBar appear).
+- TranscriptPanel.tsx: in the idle/done controls, below Transcribe, an "or"
+  divider + "Import .srt / .vtt transcript" ghost button (local importing /
+  importError signals; picks a file via the dialog plugin filtered to srt/vtt).
+  A note explains it skips transcription. Import works with NO whisper model.
+- app.css: .import-divider (rules-either-side "or"), .control-import.
+
+Docs: README Features gained a "Bring your own transcript" bullet; README +
+CLAUDE.md roadmaps mark items 1 & 2 shipped (item 3 next).
+
+VERIFIED (all three gates green):
+- cargo clippy --all-targets -- -D warnings => clean (fixed one lint: redundant
+  trim() before split_whitespace()).
+- cargo test => 35 passed (was 26; +9 subimport tests).
+- npm run build (tsc --noEmit + vite build) => clean.
+
+STILL NEEDS LIVE-WINDOW TESTING (run `npm run tauri dev`):
+- Load a video, click "Import .srt / .vtt transcript", pick a real .srt and a
+  real .vtt — confirm cues land as editable segments with correct timings, and
+  clicking a segment seeks the player.
+- Confirm import works with the app in a state where no model is installed
+  (it must not require whisper).
+- Style the imported captions (bottom bar / bold social), scrub the preview,
+  then burn-in export and confirm the captions are visible + in sync. Also test
+  sidecar re-export (.srt/.vtt/.ass) round-trips.
+- Try a malformed / empty file and a non-subtitle file → expect the clear inline
+  error, no crash.
+- With word-highlight selected on an imported (word-less) transcript, confirm it
+  renders plain (no karaoke) rather than breaking.

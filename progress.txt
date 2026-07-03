@@ -829,3 +829,14 @@ STILL NEEDS LIVE-WINDOW TESTING (run `npm run tauri dev`):
 - Confirm a non-per-word preset with a word-timed transcript renders plain (no
   karaoke), and that switching to a per-word preset without word timing shows the
   "Re-transcribe with word timing" CTA.
+
+
+--- Roadmap item 4: SCOPED (not built) ---------------------------------------
+Scoped GPU-accelerated transcription. Decisions locked: Windows backend = VULKAN
+(broad GPU coverage, tiny bundle vs CUDA's NVIDIA-only + ~300-500MB DLLs), and
+STAGED Metal-first (4a macOS Metal, then 4b Windows Vulkan). Core constraint
+captured: Metal falls back to CPU internally at runtime, but a Windows GPU binary
+fails to LAUNCH without its runtime, so on Windows the static CPU whisper-cli
+stays and the GPU sidecar ships alongside it with transparent CPU fallback.
+Full staged plan (build flags, CI, sidecar resolution, settings toggle, testing)
+written into the CLAUDE.md roadmap, item 4. No code changed.

@@ -354,9 +354,34 @@ v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1–3 are
    `grow` / `underline`) applied to the active word in both the HTML preview and
    the ASS burn-in (`\fscx/\fscy` grow, `\u1` underline). The Rust `CaptionStyle`
    no longer reads `preset` at all — rendering is driven by concrete fields.
-4. **GPU-accelerated transcription (Metal / CUDA).** Stage carefully — it adds
-   per-platform build complexity (whisper.cpp build flags, CI matrix). Keep the
-   CPU path as the portable default.
+4. **GPU-accelerated transcription.** SCOPED, not yet built. Pays off on the
+   large models the item-1 model manager now downloads (`base.en` on CPU is
+   already fine). Core constraint: GPU builds are not universally runnable, and
+   asymmetrically so — **Metal falls back to CPU internally at runtime, but a
+   Windows CUDA/Vulkan binary fails to *launch* without its runtime**, so on
+   Windows the CPU binary must stay and the GPU one ships alongside it. Decisions
+   made: **Windows backend = Vulkan** (broad NVIDIA/AMD/Intel coverage, tiny
+   bundle vs CUDA's NVIDIA-only + ~300–500 MB of DLLs), and **staged Metal-first**.
+   Keep the current static CPU build as the guaranteed fallback throughout.
+   - **4a — macOS Metal (low risk, biggest win).** `fetch-whisper.sh`: add
+     `-DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON` to the universal build
+     (embedded shaders → no sibling `.metallib`, bundle layout unchanged). Still
+     one binary; force-CPU is the whisper `-ng` flag. Add a settings toggle "GPU
+     acceleration: Auto / Off" (folds into the item-1 settings panel, on-device).
+     Validate on the macos-14 runner.
+   - **4b — Windows Vulkan (harder half).** Build a *second* sidecar
+     `whisper-cli-gpu-x86_64-pc-windows-msvc.exe` with `-DGGML_VULKAN=ON`; install
+     the Vulkan SDK (glslc) in `release.yml`; add `binaries/whisper-cli-gpu` to
+     `externalBin` (Windows-only, needs conditional handling). App side: a
+     `resolve_whisper(prefer_gpu)` that picks the GPU binary when usable and
+     **transparently re-runs on the CPU binary once** if the GPU binary fails to
+     start / errors before first progress (cache "GPU unavailable" for the
+     session). `transcribe` progress/cancel/model handling are otherwise
+     unchanged. Validate on windows-latest.
+   - Deferred: CUDA (optional later, NVIDIA power users), Linux GPU (dev-only).
+   - License/size unchanged: GPU backends are license-neutral; the app is GPL
+     only because of `libx264`. Metal adds ~0; Vulkan adds little (embedded
+     SPIR-V).
 5. **Batch captioning.** Caption multiple files in one pass.
 6. **Speaker labels / diarization.** The heaviest item; do it last.
 

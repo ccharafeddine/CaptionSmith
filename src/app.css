@@ -546,6 +546,18 @@ body {
   color: var(--fg-3);
 }
 
+/* Non-fatal backend notice (e.g. GPU fell back to CPU). */
+.panel-note-info {
+  margin: 0;
+  padding: var(--s2) var(--s3);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--fg-2);
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+}
+
 .control-note code {
   color: var(--accent-2);
   font-family: ui-monospace, monospace;

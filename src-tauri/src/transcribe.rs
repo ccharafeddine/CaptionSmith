@@ -11,8 +11,10 @@
 // Token text carries a leading space at word starts; specials look like [_BEG_].
 
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -23,10 +25,24 @@ use crate::sidecar;
 
 pub const DEFAULT_MODEL: &str = "ggml-base.en.bin";
 
-/// Managed cancel handle for the in-flight transcription.
+/// Managed state for the in-flight transcription.
 #[derive(Default)]
 pub struct TranscribeState {
     cancel: Cancellation,
+    /// Set once the GPU (Vulkan) sidecar fails to *launch* this session, so we
+    /// stop paying the failed-launch cost on every subsequent run.
+    gpu_unavailable: Arc<AtomicBool>,
+}
+
+/// Outcome of a single whisper run, so the caller can tell a fallback-eligible
+/// launch failure (GPU binary died before doing any work — e.g. no Vulkan
+/// runtime/device) from a genuine transcription error.
+enum RunErr {
+    Cancelled,
+    /// Failed before emitting any progress: eligible for CPU fallback.
+    Startup(String),
+    /// Failed after work began (or a real error): surface it, don't silently redo.
+    Failed(String),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -48,6 +64,12 @@ pub struct Segment {
 #[derive(Clone, Serialize)]
 struct TranscribeProgress {
     percent: f64,
+}
+
+/// A non-fatal notice for the UI (e.g. "GPU unavailable — using CPU").
+#[derive(Clone, Serialize)]
+struct TranscribeNote {
+    message: String,
 }
 
 #[derive(Clone, Serialize)]
@@ -279,42 +301,65 @@ pub async fn transcribe(
     model: Option<String>,
     gpu: bool,
 ) -> Result<Vec<Segment>, String> {
-    let whisper = sidecar::resolve("whisper-cli")?;
+    let cpu = sidecar::resolve("whisper-cli")?;
     let model_path = resolve_model(&app, model.as_deref())?;
 
     // Clone the shared cancel handle out of managed state before moving into the
     // blocking task (State isn't Send across the await inside spawn_blocking).
     let cancel = state.cancel.clone();
     cancel.reset();
+    let gpu_unavailable = state.gpu_unavailable.clone();
+
+    // GPU selection. macOS ships one Metal-capable binary, so "use GPU" there is
+    // simply NOT passing `-ng` (there's no separate binary). Windows ships a
+    // second Vulkan sidecar `whisper-cli-gpu`; run it when the user wants GPU and
+    // it resolved, falling back to the CPU binary if it fails to launch. A
+    // session flag remembers a failed GPU launch so we don't retry it every run.
+    let want_gpu = gpu && !gpu_unavailable.load(Ordering::SeqCst);
+    let gpu_bin = if want_gpu {
+        sidecar::resolve("whisper-cli-gpu").ok()
+    } else {
+        None
+    };
+    // Force CPU on the single/primary binary only when the user disabled GPU.
+    let force_cpu = !gpu;
 
     tauri::async_runtime::spawn_blocking(move || {
         run_transcription(
             &app,
             &cancel,
-            &whisper,
+            &gpu_unavailable,
+            &cpu,
+            gpu_bin.as_deref(),
+            force_cpu,
             &model_path,
             &src,
             language.as_deref(),
             translate,
             word_timestamps,
-            gpu,
         )
     })
     .await
     .map_err(|e| format!("task join: {e}"))?
 }
 
+/// Extract the WAV once, then run whisper — on the GPU sidecar first when one
+/// was resolved, transparently falling back to the CPU binary if the GPU binary
+/// fails to *launch* (never got as far as any progress). The WAV is removed
+/// after all attempts (zero persistent intermediates, per spec).
 #[allow(clippy::too_many_arguments)]
 fn run_transcription(
     app: &AppHandle,
     cancel: &Cancellation,
-    whisper: &std::path::Path,
-    model: &std::path::Path,
+    gpu_unavailable: &AtomicBool,
+    cpu: &Path,
+    gpu: Option<&Path>,
+    force_cpu: bool,
+    model: &Path,
     src: &str,
     language: Option<&str>,
     translate: bool,
     word_timestamps: bool,
-    gpu: bool,
 ) -> Result<Vec<Segment>, String> {
     // Phase 1: extract the 16 kHz mono WAV (cancellable, emits extract-progress).
     let wav = ffmpeg::extract_to_wav(app, src, cancel)?;
@@ -323,18 +368,110 @@ fn run_transcription(
         return Err("cancelled".into());
     }
 
-    // Phase 2: run whisper. `-of <base>` makes whisper write "<base>.json"
-    // (it APPENDS .json), so json_path must be base + ".json", not
-    // with_extension (which would replace ".out" and miss the file).
+    let result = run_pipeline(
+        app,
+        cancel,
+        gpu_unavailable,
+        cpu,
+        gpu,
+        force_cpu,
+        model,
+        &wav,
+        language,
+        translate,
+        word_timestamps,
+    );
+    let _ = std::fs::remove_file(&wav);
+    result
+}
+
+/// GPU-then-CPU attempt logic on an already-extracted WAV.
+#[allow(clippy::too_many_arguments)]
+fn run_pipeline(
+    app: &AppHandle,
+    cancel: &Cancellation,
+    gpu_unavailable: &AtomicBool,
+    cpu: &Path,
+    gpu: Option<&Path>,
+    force_cpu: bool,
+    model: &Path,
+    wav: &Path,
+    language: Option<&str>,
+    translate: bool,
+    word_timestamps: bool,
+) -> Result<Vec<Segment>, String> {
+    // The GPU binary always runs with the GPU on (never `-ng`); a launch failure
+    // (no Vulkan runtime/device) falls back to the CPU binary run plainly.
+    if let Some(gpu_bin) = gpu {
+        match run_whisper(
+            app,
+            cancel,
+            gpu_bin,
+            model,
+            wav,
+            language,
+            translate,
+            word_timestamps,
+            false,
+        ) {
+            Ok(segments) => return Ok(segments),
+            Err(RunErr::Cancelled) => return Err("cancelled".into()),
+            Err(RunErr::Failed(msg)) => return Err(msg),
+            Err(RunErr::Startup(_)) => {
+                // Remember the failed launch and drop to CPU. No progress was
+                // emitted, so the UI just sees the run start cleanly on CPU.
+                gpu_unavailable.store(true, Ordering::SeqCst);
+                let _ = app.emit(
+                    "transcribe-note",
+                    TranscribeNote {
+                        message: "GPU unavailable — using CPU.".into(),
+                    },
+                );
+            }
+        }
+    }
+
+    match run_whisper(
+        app,
+        cancel,
+        cpu,
+        model,
+        wav,
+        language,
+        translate,
+        word_timestamps,
+        force_cpu,
+    ) {
+        Ok(segments) => Ok(segments),
+        Err(RunErr::Cancelled) => Err("cancelled".into()),
+        Err(RunErr::Startup(msg)) | Err(RunErr::Failed(msg)) => Err(msg),
+    }
+}
+
+/// Run one whisper binary against `wav`, streaming progress and staying
+/// cancellable. `no_gpu` passes `-ng` (force CPU on a GPU-capable binary).
+#[allow(clippy::too_many_arguments)]
+fn run_whisper(
+    app: &AppHandle,
+    cancel: &Cancellation,
+    whisper: &Path,
+    model: &Path,
+    wav: &Path,
+    language: Option<&str>,
+    translate: bool,
+    word_timestamps: bool,
+    no_gpu: bool,
+) -> Result<Vec<Segment>, RunErr> {
+    // `-of <base>` makes whisper write "<base>.json" (it APPENDS .json), so
+    // json_path must be base + ".json", not with_extension (which would replace
+    // ".out" and miss the file).
     let out_base = wav.with_extension("out");
     let json_path = {
         let mut s = out_base.clone().into_os_string();
         s.push(".json");
-        std::path::PathBuf::from(s)
+        PathBuf::from(s)
     };
-
     let cleanup = || {
-        let _ = std::fs::remove_file(&wav);
         let _ = std::fs::remove_file(&json_path);
     };
 
@@ -342,7 +479,7 @@ fn run_transcription(
     cmd.arg("-m")
         .arg(model)
         .arg("-f")
-        .arg(&wav)
+        .arg(wav)
         .arg("-of")
         .arg(&out_base)
         .arg("-pp")
@@ -358,7 +495,7 @@ fn run_transcription(
     if translate {
         cmd.arg("-tr");
     }
-    if !gpu {
+    if no_gpu {
         cmd.arg("-ng"); // force CPU; harmless on CPU-only builds
     }
     cmd.stdin(Stdio::null())
@@ -370,16 +507,21 @@ fn run_transcription(
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     }
 
-    let mut child = cmd.spawn().map_err(|e| {
-        cleanup();
-        format!("Failed to start whisper: {e}")
-    })?;
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => {
+            cleanup();
+            return Err(RunErr::Startup(format!("Failed to start whisper: {e}")));
+        }
+    };
     let stderr = child.stderr.take().expect("piped stderr");
     cancel.set_child(child);
 
     let mut tail: Vec<String> = Vec::new();
+    let mut progress_seen = false;
     for line in BufReader::new(stderr).lines().map_while(Result::ok) {
         if let Some(percent) = parse_progress(&line) {
+            progress_seen = true;
             let _ = app.emit("transcribe-progress", TranscribeProgress { percent });
         }
         tail.push(line);
@@ -393,17 +535,23 @@ fn run_transcription(
             if cancel.is_cancelled() {
                 let _ = child.kill();
             }
-            child.wait().map_err(|e| format!("whisper wait: {e}"))?
+            match child.wait() {
+                Ok(s) => s,
+                Err(e) => {
+                    cleanup();
+                    return Err(RunErr::Failed(format!("whisper wait: {e}")));
+                }
+            }
         }
         None => {
             cleanup();
-            return Err("cancelled".into());
+            return Err(RunErr::Cancelled);
         }
     };
 
     if cancel.is_cancelled() {
         cleanup();
-        return Err("cancelled".into());
+        return Err(RunErr::Cancelled);
     }
     if !status.success() {
         cleanup();
@@ -413,17 +561,29 @@ fn run_transcription(
             .find(|l| l.to_lowercase().contains("error") || l.contains("failed"))
             .cloned()
             .unwrap_or_else(|| "whisper failed to transcribe the audio.".to_string());
-        return Err(detail.trim().to_string());
+        let detail = detail.trim().to_string();
+        // No progress => it died on startup/init (missing GPU runtime/device):
+        // fallback-eligible. Progress seen => a genuine mid-run failure.
+        return Err(if progress_seen {
+            RunErr::Failed(detail)
+        } else {
+            RunErr::Startup(detail)
+        });
     }
 
-    let json = std::fs::read_to_string(&json_path).map_err(|e| {
-        cleanup();
-        format!("whisper produced no JSON output: {e}")
-    })?;
+    let json = match std::fs::read_to_string(&json_path) {
+        Ok(j) => j,
+        Err(e) => {
+            cleanup();
+            return Err(RunErr::Failed(format!(
+                "whisper produced no JSON output: {e}"
+            )));
+        }
+    };
     let segments = parse_segments(&json, word_timestamps);
     let _ = app.emit("transcribe-progress", TranscribeProgress { percent: 100.0 });
     cleanup(); // zero persistent intermediates (spec)
-    segments
+    segments.map_err(RunErr::Failed)
 }
 
 fn threads() -> usize {

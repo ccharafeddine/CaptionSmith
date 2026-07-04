@@ -1,0 +1,11 @@
+{
+  "bundle": {
+    "externalBin": [
+      "binaries/yt-dlp",
+      "binaries/ffmpeg",
+      "binaries/ffprobe",
+      "binaries/whisper-cli",
+      "binaries/whisper-cli-gpu"
+    ]
+  }
+}

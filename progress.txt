@@ -883,3 +883,71 @@ UNPROVEN until either a release tag is pushed or a dedicated macOS build check i
 run. Options: (a) add a workflow_dispatch job that runs fetch-whisper.sh on
 macos-14 and asserts the binary compiles + `whisper-cli --help`/system_info loads
 Metal; (b) validate at the next real release. Recommended (a) before trusting 4a.
+
+
+--- Roadmap item 4b: Windows Vulkan GPU acceleration -------------------------
+DONE (code complete + local gates green; the Vulkan BUILD is validated by a new
+Windows verify workflow — triggered separately, see below).
+
+The hard half. On Windows a GPU whisper binary can't REPLACE the CPU one (it
+fails to launch without a Vulkan runtime/device), so we ship BOTH and pick at
+runtime with a transparent CPU fallback.
+
+Build (scripts/fetch-whisper.sh, Windows branch):
+- Still builds the portable CPU binary (whisper-cli-...), THEN a second Vulkan
+  build (-DGGML_VULKAN=ON) -> whisper-cli-gpu-x86_64-pc-windows-msvc.exe, guarded
+  on the Vulkan SDK being present (VULKAN_SDK / glslc). No SDK (local dev): copies
+  the CPU binary under the GPU name as a dev placeholder so the Windows bundle's
+  externalBin check passes (NOT a real GPU build; release CI always has the SDK,
+  and a failed real Vulkan build errors out under set -e rather than being masked).
+- The Vulkan binary dynamically loads the system vulkan-1.dll at runtime (shipped
+  by GPU drivers), so nothing extra is bundled.
+
+Bundling (Tauri):
+- src-tauri/tauri.windows.conf.json — Windows-only config auto-merged over
+  tauri.conf.json, adding binaries/whisper-cli-gpu to externalBin (arrays are
+  REPLACED on merge, so the full list is repeated). macOS/Linux use the base
+  config (no GPU binary). NOTE: generate_context! rejects unknown keys, so no
+  "//" comment key is allowed in that file.
+
+App runtime selection + fallback (transcribe.rs, refactored):
+- transcribe resolves the CPU binary always; when GPU is wanted (and not already
+  marked unavailable this session) it also resolves whisper-cli-gpu.
+- run_transcription now extracts the WAV ONCE, then run_pipeline tries the GPU
+  binary first and transparently re-runs on the CPU binary if the GPU binary
+  fails to LAUNCH (RunErr::Startup = exited before ANY progress — DLL/Vulkan
+  init). A genuine mid-run failure (RunErr::Failed, progress already seen) is
+  surfaced, not silently redone. Cancels propagate. A session AtomicBool
+  (TranscribeState.gpu_unavailable) remembers a failed launch so later runs skip
+  straight to CPU. Emits a "transcribe-note" event on fallback.
+- run_whisper is the single-binary runner returning RunErr {Cancelled, Startup,
+  Failed}; classification hinges on progress_seen.
+- macOS is unchanged in spirit: no separate GPU binary, so GPU=on runs the Metal
+  binary plainly and GPU=off passes -ng.
+
+Frontend:
+- transcription.ts: transcribeNote signal, cleared on run start, set from the
+  "transcribe-note" event. TranscriptPanel shows it as a small .panel-note-info
+  line (e.g. "GPU unavailable — using CPU."). (The GPU on/off toggle from 4a
+  already drives the `gpu` arg.)
+
+CI:
+- release.yml: installs the Vulkan SDK on the Windows job (LunarG latest,
+  silent) before fetch-whisper.sh, exporting VULKAN_SDK + Bin on PATH.
+- ci.yml: UNCHANGED — it's Linux (base config, no GPU binary required).
+- NEW .github/workflows/verify-whisper-vulkan.yml (workflow_dispatch,
+  windows-latest): installs the SDK, runs fetch-whisper.sh, asserts BOTH sidecars
+  built and the CPU one runs. The GPU binary is not executed (runner has no
+  GPU/Vulkan driver) — a successful -DGGML_VULKAN=ON build + the file existing is
+  the proof; the missing-runtime case is exactly what the app fallback covers.
+
+VERIFIED (local, all four gates green):
+- cargo fmt --check / clippy -D warnings => clean
+- cargo test => 44 passed
+- npm run build => clean
+- Local Windows build needs a whisper-cli-gpu placeholder (created by the script's
+  no-SDK branch; binaries/ is gitignored).
+
+PENDING: run verify-whisper-vulkan.yml to prove the Vulkan SDK install + build on
+windows-latest (the LunarG "latest" installer URL/flags are the main unknown).
+Only after it's green should README/CLAUDE mark item 4 fully shipped.

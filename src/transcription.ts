@@ -34,6 +34,8 @@ export const [transcript, setTranscript] = createStore<{ segments: Segment[] }>(
 export const [status, setStatus] = createSignal<Status>("idle");
 export const [percent, setPercent] = createSignal<number | null>(null);
 export const [errorMsg, setErrorMsg] = createSignal("");
+// Non-fatal notice from the backend (e.g. GPU unavailable, fell back to CPU).
+export const [transcribeNote, setTranscribeNote] = createSignal("");
 export const [modelDir, setModelDir] = createSignal("");
 // Whether the current transcript carries word-level timings (for karaoke).
 export const [hasWords, setHasWords] = createSignal(false);
@@ -94,6 +96,7 @@ export async function runTranscribe(wordTimestamps: boolean) {
   setStatus("extracting");
   setPercent(null);
   setErrorMsg("");
+  setTranscribeNote("");
 
   const unlisten: UnlistenFn[] = [];
   try {
@@ -106,6 +109,11 @@ export async function runTranscribe(wordTimestamps: boolean) {
       await listen<{ percent: number }>("transcribe-progress", (e) => {
         setStatus("transcribing");
         setPercent(e.payload.percent);
+      }),
+    );
+    unlisten.push(
+      await listen<{ message: string }>("transcribe-note", (e) => {
+        setTranscribeNote(e.payload.message);
       }),
     );
 

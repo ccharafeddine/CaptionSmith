@@ -32,6 +32,7 @@ import {
   setTranscript,
   setTranslate,
   status,
+  transcribeNote,
   transcript,
   translate,
 } from "../transcription";
@@ -380,6 +381,10 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
             Cancel (Esc)
           </button>
         </div>
+      </Show>
+
+      <Show when={transcribeNote()}>
+        <p class="panel-note-info">{transcribeNote()}</p>
       </Show>
 
       <Show when={status() === "model-missing"}>

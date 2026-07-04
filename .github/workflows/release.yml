@@ -54,6 +54,22 @@ jobs:
         if: matrix.platform == 'macos-14'
         run: brew install nasm pkg-config cmake meson ninja
 
+      # The Windows GPU (Vulkan) whisper sidecar needs the Vulkan SDK at build
+      # time (glslc + headers + vulkan-1.lib). fetch-whisper.sh builds the GPU
+      # binary only when VULKAN_SDK is set.
+      - name: Install Vulkan SDK (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = "$env:RUNNER_TEMP\VulkanSDK.exe"
+          curl.exe -L -o $installer "https://sdk.lunarg.com/sdk/download/latest/windows/vulkan_sdk.exe"
+          Start-Process -FilePath $installer -ArgumentList '--accept-licenses','--default-answer','--confirm-command','install' -Wait
+          $sdk = (Get-ChildItem 'C:\VulkanSDK' -Directory | Sort-Object Name -Descending | Select-Object -First 1).FullName
+          "VULKAN_SDK=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "$sdk\Bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          Write-Host "Installed Vulkan SDK at $sdk"
+
       - name: Install frontend dependencies
         run: npm ci
 

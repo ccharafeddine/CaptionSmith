@@ -56,13 +56,40 @@ case "$(uname -s)" in
     echo "  -> whisper-cli-{aarch64,x86_64,universal}-apple-darwin"
     ;;
   MINGW* | MSYS* | CYGWIN* | Windows_NT)
+    # CPU build — the portable, always-present fallback.
     cmake -S "$SRC" -B "$SRC/build" "${COMMON[@]}"
     cmake --build "$SRC/build" --config Release -j --target whisper-cli
     # MSVC multi-config generator puts the exe under Release/.
     CLI="$SRC/build/bin/Release/whisper-cli.exe"
     [ -f "$CLI" ] || CLI="$SRC/build/bin/whisper-cli.exe"
     cp "$CLI" "$BIN_DIR/whisper-cli-x86_64-pc-windows-msvc.exe"
-    echo "  -> whisper-cli-x86_64-pc-windows-msvc.exe"
+    echo "  -> whisper-cli-x86_64-pc-windows-msvc.exe (CPU)"
+
+    # Vulkan GPU build (item 4b) — a SECOND sidecar the app picks at runtime and
+    # falls back off when Vulkan isn't available. Needs the Vulkan SDK (glslc,
+    # headers, vulkan-1.lib); the GPU binary dynamically loads the system
+    # vulkan-1.dll at runtime (shipped by GPU drivers), so nothing extra is
+    # bundled. Skipped when no SDK is present (e.g. local dev) so the CPU binary
+    # still ships; CI installs the SDK before calling this script.
+    if [ -n "${VULKAN_SDK:-}" ] || command -v glslc >/dev/null 2>&1; then
+      echo "== Building Vulkan whisper-cli (GPU) =="
+      cmake -S "$SRC" -B "$SRC/build-vulkan" "${COMMON[@]}" -DGGML_VULKAN=ON
+      cmake --build "$SRC/build-vulkan" --config Release -j --target whisper-cli
+      GCLI="$SRC/build-vulkan/bin/Release/whisper-cli.exe"
+      [ -f "$GCLI" ] || GCLI="$SRC/build-vulkan/bin/whisper-cli.exe"
+      cp "$GCLI" "$BIN_DIR/whisper-cli-gpu-x86_64-pc-windows-msvc.exe"
+      echo "  -> whisper-cli-gpu-x86_64-pc-windows-msvc.exe (Vulkan)"
+    else
+      # Dev fallback (no SDK): copy the CPU binary under the GPU name so the
+      # Windows bundle's externalBin existence check still passes and the app
+      # runs locally. This is NOT a real GPU build. Release CI always installs
+      # the SDK, so it never takes this path (and a failed real Vulkan build
+      # errors out under `set -e` rather than being masked here).
+      echo "  !! Vulkan SDK not found; using the CPU binary as a whisper-cli-gpu"
+      echo "     placeholder (dev only — NOT a real Vulkan build)."
+      cp "$BIN_DIR/whisper-cli-x86_64-pc-windows-msvc.exe" \
+        "$BIN_DIR/whisper-cli-gpu-x86_64-pc-windows-msvc.exe"
+    fi
     ;;
   Linux)
     cmake -S "$SRC" -B "$SRC/build" "${COMMON[@]}"

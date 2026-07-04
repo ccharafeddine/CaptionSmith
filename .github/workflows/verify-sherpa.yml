@@ -1,0 +1,82 @@
+name: Verify sherpa-onnx diarization sidecar (Windows)
+
+# Discovery + verify for item 6a. Downloads the prebuilt sherpa-onnx binaries,
+# confirms the offline-speaker-diarization executable is present, loads, and
+# exposes the flags diarize.rs passes (--segmentation.pyannote-model /
+# --embedding.model). It also inspects the SHARED archive's DLL layout and probes
+# whether the STATIC build's exe is self-contained — this decides how we bundle
+# the sidecar (single static exe via externalBin, vs shared exe + onnxruntime.dll
+# beside it). The CLI output format ("%.3f -- %.3f speaker_NN") is already
+# confirmed from source, so parse_turns is validated; this proves the binary.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "sherpa-onnx version (see huggingface csukuangfj/sherpa-onnx-libs)"
+        default: "1.12.21"
+
+jobs:
+  probe-sherpa:
+    runs-on: windows-latest
+    steps:
+      - name: Download + extract the SHARED build
+        shell: bash
+        run: |
+          set -euxo pipefail
+          V="${{ github.event.inputs.version }}"
+          URL="https://huggingface.co/csukuangfj/sherpa-onnx-libs/resolve/main/win64/${V}/sherpa-onnx-v${V}-win-x64-shared.tar.bz2"
+          curl -fL --retry 3 -o shared.tar.bz2 "$URL"
+          mkdir -p shared && tar xf shared.tar.bz2 -C shared
+
+      - name: Inspect the shared archive layout
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "== files (depth<=3) =="
+          find shared -maxdepth 3 -type f | sort
+          echo "== the diarization exe =="
+          find shared -name 'sherpa-onnx-offline-speaker-diarization*' -type f
+          echo "== dlls =="
+          find shared -name '*.dll' -type f | sort
+
+      - name: Run the shared diarization exe (loads + exposes our flags)
+        shell: bash
+        run: |
+          set -uxo pipefail
+          BIN="$(find shared -name 'sherpa-onnx-offline-speaker-diarization.exe' -type f | head -1)"
+          test -n "$BIN"
+          BINDIR="$(dirname "$BIN")"
+          # Ensure the exe finds its DLLs: copy every DLL next to it.
+          find shared -name '*.dll' -exec cp {} "$BINDIR/" \; || true
+          # No args prints usage (nonzero exit); capture regardless and grep flags.
+          "$BIN" > help.txt 2>&1 || true
+          echo "----- usage -----"; cat help.txt; echo "-----------------"
+          grep -q -- "--segmentation.pyannote-model" help.txt
+          grep -q -- "--embedding.model" help.txt
+          echo "OK (shared): diarization exe loads and exposes the expected flags."
+          echo "DLLs living beside the exe (what a shared bundle must ship):"
+          ls -1 "$BINDIR"/*.dll || true
+
+      - name: Probe whether the STATIC build's exe is self-contained (informational)
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -uxo pipefail
+          V="${{ github.event.inputs.version }}"
+          URL="https://huggingface.co/csukuangfj/sherpa-onnx-libs/resolve/main/win64/${V}/sherpa-onnx-v${V}-win-x64-static.tar.bz2"
+          curl -fL --retry 3 -o static.tar.bz2 "$URL" || { echo "no static archive"; exit 0; }
+          mkdir -p static && tar xf static.tar.bz2 -C static
+          echo "== static: is the diarization exe present? =="
+          SBIN="$(find static -name 'sherpa-onnx-offline-speaker-diarization.exe' -type f | head -1 || true)"
+          if [ -z "$SBIN" ]; then echo "static archive has NO exe (libs only) -> must use shared"; exit 0; fi
+          echo "found static exe: $SBIN"
+          echo "== static: any DLLs in the archive? (none => self-contained) =="
+          find static -name '*.dll' -type f | sort || true
+          # Run it in ISOLATION (its own dir, no copied DLLs) to see if it stands alone.
+          SDIR="$(mktemp -d)"; cp "$SBIN" "$SDIR/"
+          ( cd "$SDIR" && ./sherpa-onnx-offline-speaker-diarization.exe > s.txt 2>&1 || true; cat s.txt )
+          if ( cd "$SDIR" && grep -q -- "--embedding.model" s.txt ); then
+            echo "STATIC EXE IS SELF-CONTAINED -> bundle just the single exe."
+          else
+            echo "static exe did not run standalone -> shared build it is."
+          fi

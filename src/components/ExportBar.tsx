@@ -6,6 +6,7 @@ import { unwrap } from "solid-js/store";
 
 import { style } from "../style";
 import { transcript } from "../transcription";
+import { hasSpeakers, speakerLabel } from "../diarize";
 
 type ExportBarProps = {
   videoPath: string;
@@ -29,8 +30,21 @@ export default function ExportBar(props: ExportBarProps) {
   const [percent, setPercent] = createSignal<number | null>(null);
   const [saved, setSaved] = createSignal("");
   const [error, setError] = createSignal("");
+  const [prefixSpeakers, setPrefixSpeakers] = createSignal(false);
 
-  const segments = () => unwrap(transcript).segments;
+  // Segments to export. When "Speaker names" is on, bake the speaker label into
+  // each caption's text ("Alice: …") — done here (not in Rust) because the custom
+  // names live in the frontend. Note: karaoke styles render from word timings, so
+  // the prefix shows in the text-based outputs (SRT/VTT and non-karaoke ASS).
+  const exportSegments = () => {
+    const segs = unwrap(transcript).segments;
+    if (!prefixSpeakers() || !hasSpeakers()) return segs;
+    return segs.map((s) =>
+      s.speaker != null
+        ? { ...s, text: `${speakerLabel(s.speaker)}: ${s.text}` }
+        : s,
+    );
+  };
 
   const exportSidecar = async () => {
     if (busy()) return;
@@ -47,7 +61,7 @@ export default function ExportBar(props: ExportBarProps) {
 
       setBusy("sidecar");
       await invoke("export_sidecar", {
-        segments: segments(),
+        segments: exportSegments(),
         style: { ...style },
         format: ext,
         path,
@@ -81,7 +95,7 @@ export default function ExportBar(props: ExportBarProps) {
         });
         await invoke("burn_in", {
           src: props.videoPath,
-          segments: segments(),
+          segments: exportSegments(),
           style: { ...style },
           out: path,
         });
@@ -152,6 +166,17 @@ export default function ExportBar(props: ExportBarProps) {
             {busy() === "sidecar" ? "Exporting…" : "Export file"}
           </button>
         </div>
+
+        <Show when={hasSpeakers()}>
+          <label class="control-check export-speakers">
+            <input
+              type="checkbox"
+              checked={prefixSpeakers()}
+              onChange={(e) => setPrefixSpeakers(e.currentTarget.checked)}
+            />
+            <span>Speaker names</span>
+          </label>
+        </Show>
 
         <div class="export-divider" />
 

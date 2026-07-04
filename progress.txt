@@ -1164,3 +1164,31 @@ LIVE-TEST NEEDED (needs a real multi-speaker video + the model download): the
 whole Detect flow, rename/reassign, and that it degrades cleanly on this Windows
 box (the sherpa sidecar placeholder is a copy of whisper-cli, so a real run would
 error -> shows the error, no crash).
+
+--- 6a increment 5: speaker-name prefix in export -----------------------------
+DONE (frontend; gates green). NO Rust change — the prefix is baked into segment
+text at export time, since the custom speaker names live in the frontend.
+- ExportBar: a "Speaker names" checkbox (shown only when hasSpeakers()). When on,
+  exportSegments() maps each segment to text = "<speakerLabel>: <text>" and that
+  goes to both export_sidecar and burn_in. Note: karaoke styles render from word
+  timings, so the prefix appears in the text outputs (SRT/VTT + non-karaoke ASS),
+  not in a karaoke burn — acceptable (speaker labels are for interview/multi-
+  speaker content, not karaoke).
+VERIFIED: npm run build clean (Rust untouched).
+
+=== 6a COMPLETE (increments 1-5) ==============================================
+Speaker labels shipped: Segment.speaker + tested alignment core; the sherpa-onnx
+diarization sidecar (bundled Windows-first, CI-validated END TO END incl. real
+diarization output); on-first-use model download; the Detect-speakers editor UI
+(detect/download/legend, rename, reassign, colored chips); and speaker-name
+prefix export.
+REMAINING for item 6 to be fully done:
+  - 6b: per-speaker CAPTION COLORING in the live preview + ASS burn-in
+    (speaker -> color; ASS per-Dialogue \c override). speakerColor() already
+    exists for the chips, so this extends it into rendering.
+  - macOS diarization sidecar (verify the osx static archive on a macOS runner;
+    wire into base externalBin or a tauri.macos.conf.json).
+  - A real end-to-end app run of diarization on a multi-speaker video (only the
+    sidecar BACKEND is CI-proven; the full in-app flow needs a real sherpa binary
+    + models — a release build or dropping the real exe into binaries/).
+README roadmap item 6 stays [ ] until 6b + macOS land.

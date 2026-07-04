@@ -1009,3 +1009,21 @@ STILL NEEDS LIVE-WINDOW TESTING (run `npm run tauri dev`):
 - Cancel mid-run: the in-flight file stops, remaining stay queued, no crash.
 - Point one entry at a non-media file: it shows an error and the batch continues.
 - Switch model/preset/folder in the modal and confirm they take effect.
+
+
+--- Roadmap item 6: SCOPED (not built) ---------------------------------------
+Scoped speaker labels / diarization. Decisions locked: engine = SHERPA-ONNX
+(true identity-aware Speaker 1/2/3 via pyannote segmentation ONNX + speaker-
+embedding ONNX + clustering; Apache/MIT), models DOWNLOADED ON FIRST USE (bundle
+only the sidecar; reuse the item-1 downloader for the ~30MB ONNX models — lean
+installer + sidesteps gated model licenses). Rejected whisper -tdrz tinydiarize
+(turn-boundaries only, no identity, English-only) and stereo --diarize.
+Integration = a sherpa-onnx diarization SIDECAR (spawn/parse, like whisper-cli)
+run on the already-extracted WAV; align speaker turns to whisper words/segments;
+add Segment.speaker (Rust+TS). Staged: 6a = sidecar + model download + alignment
++ Segment.speaker + editor chips/rename/reassign + speaker-prefix export; 6b =
+per-speaker caption coloring (preview + ASS burn-in). Build/CI: fetch-sherpa.sh
+(macOS universal + Windows x64) + externalBin + a verify workflow (biggest CI
+add). Gating unknown: per-model redistribution licenses; plus accuracy on short-
+form/music/overlap (keep opt-in + editable). Full plan in CLAUDE.md roadmap,
+item 6. No code changed.

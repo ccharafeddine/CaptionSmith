@@ -393,7 +393,35 @@ v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1–5 are
    output format (SRT/VTT/ASS sidecar or burn-in MP4), an output folder, a caption
    preset, and the model/language, then shows per-file progress + results. No
    per-file editing by design (can't hand-tune N transcripts).
-6. **Speaker labels / diarization.** The heaviest item; do it last.
+6. **Speaker labels / diarization.** SCOPED, not yet built. The heaviest item —
+   new ML machinery, not a reuse-and-wire like 2–5. whisper.cpp does NOT assign
+   speaker identities, so this needs a real diarization engine. Decisions made:
+   **engine = sherpa-onnx** (pyannote segmentation ONNX + speaker-embedding ONNX
+   + clustering → true, identity-aware Speaker 1/2/3; Apache-2.0 engine, MIT
+   onnxruntime), and **models downloaded on first use** (bundle only the sidecar;
+   fetch the ~30 MB ONNX models on first "Detect speakers", reusing the item-1
+   downloader — keeps the installer lean and sidesteps gated model-redistribution
+   licenses). Rejected: whisper `-tdrz` tinydiarize (turn-boundaries only, no
+   identity, English-only) and stereo `--diarize` (needs per-channel speakers).
+   - **Engine integration:** a sherpa-onnx diarization **sidecar** (spawn + parse,
+     mirroring the whisper-cli/ffmpeg plumbing: `sidecar::resolve`,
+     `std::process`, cancel) rather than the in-process `ort` crate. Runs on the
+     already-extracted 16 kHz WAV → speaker turns [{start,end,spk}].
+   - **Alignment:** add `speaker: Option<u32>` to the Segment model (Rust + TS);
+     align each caption/word to the majority-overlap speaker (word-level timings,
+     already supported, sharpen boundary cases). Opt-in "Detect speakers" (slower,
+     extra models) with a model-not-found pointer state like whisper's.
+   - **UX:** speaker chip per transcript row; rename (Speaker 1 → Alice) +
+     reassign; export option to prefix caption text ("Alice: …").
+   - **6a** = sidecar + model download + alignment + Segment.speaker + editor
+     chips/rename/reassign + speaker-prefix export. **6b** = per-speaker caption
+     COLORING in preview + burn-in (speaker→color map; ASS per-Dialogue colour).
+   - **Build/CI:** new scripts/fetch-sherpa.sh (macOS universal + Windows x64) +
+     externalBin entry + a verify-* workflow proving the sidecar builds and emits
+     speaker turns on a sample — the biggest CI addition of the roadmap.
+   - **Gating unknown:** each ONNX model's redistribution license (why we default
+     to download-on-first-use). Also: accuracy on short-form/music/overlap/single-
+     speaker clips — keep it opt-in and fully editable.
 
 Horizon (not scheduled): code-signing + notarization, done suite-wide across
 GifSmith / ClipSmith / CaptionSmith together.

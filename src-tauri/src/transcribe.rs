@@ -59,6 +59,10 @@ pub struct Segment {
     pub text: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub words: Option<Vec<Word>>,
+    /// Speaker index from diarization (item 6), if it has been run. None until
+    /// "Detect speakers" assigns one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speaker: Option<u32>,
 }
 
 #[derive(Clone, Serialize)]
@@ -235,6 +239,7 @@ fn parse_segments(json: &str, want_words: bool) -> Result<Vec<Segment>, String> 
             end,
             text,
             words,
+            speaker: None,
         });
     }
     Ok(segments)

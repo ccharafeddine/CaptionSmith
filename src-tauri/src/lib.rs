@@ -7,6 +7,7 @@
 // Step 8: sidecar subtitle export (.srt / .vtt / .ass).
 // The burn-in export lands in a later step (see CLAUDE.md build plan).
 
+mod diarize;
 mod ffmpeg;
 mod models;
 mod proc;
@@ -17,6 +18,7 @@ mod transcribe;
 mod updater;
 mod url_import;
 
+use diarize::DiarizeState;
 use ffmpeg::BurnState;
 use models::ModelDownloadState;
 use tauri::Manager;
@@ -44,6 +46,7 @@ pub fn run() {
         .manage(TranscribeState::default())
         .manage(BurnState::default())
         .manage(ModelDownloadState::default())
+        .manage(DiarizeState::default())
         .invoke_handler(tauri::generate_handler![
             url_import::download_url,
             url_import::cancel_download,
@@ -61,6 +64,8 @@ pub fn run() {
             models::models_folder,
             updater::check_for_update,
             updater::open_release_page,
+            diarize::diarize,
+            diarize::cancel_diarize,
             ensure_export_dir,
         ])
         .run(tauri::generate_context!())

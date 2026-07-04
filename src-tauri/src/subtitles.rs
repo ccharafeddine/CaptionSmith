@@ -333,6 +333,7 @@ mod tests {
             end,
             text: text.to_string(),
             words: None,
+            speaker: None,
         }
     }
 
@@ -438,6 +439,7 @@ mod tests {
                     text: "so".into(),
                 },
             ]),
+            speaker: None,
         };
         let mut st = style();
         st.per_word = true;
@@ -467,6 +469,7 @@ mod tests {
                     text: "now".into(),
                 },
             ]),
+            speaker: None,
         }
     }
 

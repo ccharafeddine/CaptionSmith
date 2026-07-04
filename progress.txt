@@ -1027,3 +1027,50 @@ per-speaker caption coloring (preview + ASS burn-in). Build/CI: fetch-sherpa.sh
 add). Gating unknown: per-model redistribution licenses; plus accuracy on short-
 form/music/overlap (keep opt-in + editable). Full plan in CLAUDE.md roadmap,
 item 6. No code changed.
+
+
+--- Roadmap item 6a: diarization — increment 1 (data model + alignment core) --
+DONE (code complete + gates green). First of several 6a increments; this is the
+part that's fully buildable + unit-testable offline (no sherpa binary on this
+box).
+
+- Segment gained `speaker: Option<u32>` (Rust transcribe::Segment + TS Segment),
+  #[serde(default, skip_serializing_if)] so old payloads still deserialize.
+  Updated the 5 Rust Segment literals (transcribe parse, subimport parse, 3
+  subtitles test helpers) with speaker: None.
+- NEW src-tauri/src/diarize.rs — the engine-agnostic core, fully tested:
+    * SpeakerTurn + parse_turns(): parses the sherpa-onnx diarization stdout
+      format "0.031 -- 1.743 speaker_00", skipping logs/blanks and zero/neg-length
+      turns.
+    * majority_speaker()/assign_speakers(): tag each segment with the speaker
+      whose turns overlap it MOST in time; votes with word timings when present
+      (sharper across a turn boundary), else the segment's own span; None on no
+      overlap; deterministic tie-break to the lower speaker index.
+    * 6 unit tests (parse + skip noise, skip zero-length, majority overlap, word-
+      timing refinement, no-overlap None, empty-turns None).
+- The `diarize` command + cancel_diarize + DiarizeState, registered in lib.rs.
+  It extracts the 16 kHz WAV (reuses ffmpeg::extract_to_wav), spawns the
+  sherpa-onnx-offline-speaker-diarization sidecar, reads speaker turns from
+  stdout, aligns, returns segments with speakers. Cancellable. Fails GRACEFULLY
+  until the sidecar+models exist: "sidecar not found" or
+  "DIARIZE_MODELS_MISSING|<dir>" (the <AppData>/CaptionSmith/diarization folder;
+  models saved as segmentation.onnx + embedding.onnx).
+
+UNVALIDATED until later increments (flagged): the sherpa-onnx CLI contract — the
+exact arg names (--segmentation.pyannote-model / --embedding.model /
+--clustering.cluster-threshold) and that turns print to STDOUT in that format.
+These get proven by a Windows/macOS verify workflow once the fetch script lands.
+
+VERIFIED: cargo fmt --check / clippy -D warnings clean; cargo test => 50 passed
+(+6 diarize); npm run build clean.
+
+REMAINING 6a increments:
+  2. scripts/fetch-sherpa.sh (build/fetch the sidecar per platform) + externalBin
+     (+ a Windows placeholder path like the whisper-gpu one) + a verify-* workflow
+     to prove the CLI contract + output format on a sample clip.
+  3. Diarization model download (reuse the models.rs downloader) into the
+     diarization folder as segmentation.onnx + embedding.onnx.
+  4. Editor UI: a "Detect speakers" action (opt-in; DIARIZE_MODELS_MISSING ->
+     pointer state), speaker chips per row, rename + reassign.
+  5. Export: speaker-name prefix in sidecar/burn-in.
+Then 6b: per-speaker caption coloring (preview + ASS).

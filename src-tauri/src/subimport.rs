@@ -84,6 +84,7 @@ fn parse_subtitles(content: &str) -> Vec<Segment> {
             end,
             text,
             words: None,
+            speaker: None,
         });
     }
 

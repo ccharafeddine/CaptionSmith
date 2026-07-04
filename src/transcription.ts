@@ -8,7 +8,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 export type Word = { start: number; end: number; text: string };
-export type Segment = { start: number; end: number; text: string; words?: Word[] };
+export type Segment = {
+  start: number;
+  end: number;
+  text: string;
+  words?: Word[];
+  speaker?: number; // diarization (item 6): set once "Detect speakers" runs
+};
 export type ModelInfo = {
   name: string;
   label: string;

@@ -75,6 +75,9 @@ longer; a progress bar and a Cancel button show while it runs.
   Ships with an English model, and a built-in **model manager** downloads
   multilingual models (one model covers ~99 languages) for auto language
   detection and **translate-to-English**
+- **GPU acceleration** where available — Metal on Apple Silicon, Vulkan on
+  Windows — with automatic CPU fallback and an on/off toggle in Settings. Speeds
+  up the larger models most
 - An **editable transcript** synced to the video: fix words, merge/split
   segments, nudge timing, click a line to jump to it, and **insert a caption**
   for non-speech lines like `[laughs]`
@@ -204,7 +207,7 @@ Forward (in order):
 1. [x] Settings gearwheel + prompt-only update check + model management
 2. [x] SRT / VTT import — bring your own transcript, style it, burn it
 3. [x] More caption style presets + per-word emphasis
-4. [ ] GPU-accelerated transcription (Metal / CUDA) — staged, per-platform build work
+4. [x] GPU-accelerated transcription (Metal on macOS, Vulkan on Windows)
 5. [ ] Batch captioning of multiple files
 6. [ ] Speaker labels / diarization (heaviest; last)
 

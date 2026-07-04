@@ -330,8 +330,8 @@ binaries are invoked as separate sidecar processes:
 
 ## Roadmap
 
-v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1–3 are
-**shipped**; item 4 (GPU transcription) is next.
+v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1–4 are
+**shipped**; item 5 (batch captioning) is next.
 
 1. **Settings gearwheel + update-check + model management.** ✅ Shipped. A gearwheel top-right
    of the header opens a settings panel (logo stays centered, 3-column grid). It
@@ -354,7 +354,10 @@ v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1–3 are
    `grow` / `underline`) applied to the active word in both the HTML preview and
    the ASS burn-in (`\fscx/\fscy` grow, `\u1` underline). The Rust `CaptionStyle`
    no longer reads `preset` at all — rendering is driven by concrete fields.
-4. **GPU-accelerated transcription.** SCOPED, not yet built. Pays off on the
+4. **GPU-accelerated transcription.** ✅ Shipped (Metal on macOS, Vulkan on
+   Windows), both build-validated on their CI runners. See the staged notes
+   below; the app auto-falls back to CPU and a Settings toggle forces it off.
+   Pays off on the
    large models the item-1 model manager now downloads (`base.en` on CPU is
    already fine). Core constraint: GPU builds are not universally runnable, and
    asymmetrically so — **Metal falls back to CPU internally at runtime, but a

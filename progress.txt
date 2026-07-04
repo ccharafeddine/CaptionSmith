@@ -951,3 +951,16 @@ VERIFIED (local, all four gates green):
 PENDING: run verify-whisper-vulkan.yml to prove the Vulkan SDK install + build on
 windows-latest (the LunarG "latest" installer URL/flags are the main unknown).
 Only after it's green should README/CLAUDE mark item 4 fully shipped.
+
+--- Item 4b + 4: VALIDATED on CI --------------------------------------------
+Ran verify-whisper-vulkan.yml on windows-latest => GREEN (5m). Confirms:
+- Vulkan SDK installs via the LunarG "latest" URL + silent flags (got 1.4.350.0),
+  which is the SAME step release.yml uses -> release path validated too.
+- CMake reports "Vulkan found"; both sidecars build. GPU binary is 75 MB vs the
+  CPU binary's 1.9 MB, i.e. a REAL Vulkan build (backend + embedded shaders), not
+  the dev placeholder copy.
+- CPU binary runs; the assertion step's "OK: CPU + Vulkan ... built" printed.
+Item 4 (4a Metal + 4b Vulkan) is now fully shipped + build-validated. README +
+CLAUDE roadmaps updated (items 1-4 shipped; item 5 batch captioning next). The
+runtime GPU speedup itself shows on real hardware at release; the builds and the
+CPU-fallback logic are proven.

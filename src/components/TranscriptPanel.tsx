@@ -11,6 +11,23 @@ import { produce } from "solid-js/store";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import ModelManager from "./ModelManager";
+import {
+  cancelDetect,
+  cancelDiarizationDownload,
+  diarizeError,
+  diarizeModelsDir,
+  diarizeStatus,
+  downloadDiarizationModels,
+  downloadInfo,
+  hasSpeakers,
+  reassignSpeaker,
+  renameSpeaker,
+  runDetectSpeakers,
+  setDiarizeStatus,
+  speakerColor,
+  speakerLabel,
+  speakers,
+} from "../diarize";
 import { formatTime, formatPrecise } from "../format";
 import { isFormControl } from "../keys";
 import { style } from "../style";
@@ -406,6 +423,123 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
           </button>
         </div>
 
+        <Show when={transcript.segments.length > 0}>
+          <div class="speaker-bar">
+            {/* Idle, no speakers yet → offer detection */}
+            <Show when={diarizeStatus() === "idle" && !hasSpeakers()}>
+              <button
+                class="ghost-btn tiny-btn"
+                type="button"
+                onClick={runDetectSpeakers}
+              >
+                Detect speakers
+              </button>
+              <span class="speaker-hint">Label who's talking (on-device)</span>
+            </Show>
+
+            {/* Running */}
+            <Show when={diarizeStatus() === "running"}>
+              <span class="speaker-running">Detecting speakers…</span>
+              <button class="ghost-btn tiny-btn" type="button" onClick={cancelDetect}>
+                Cancel
+              </button>
+            </Show>
+
+            {/* Models missing → one-time download */}
+            <Show when={diarizeStatus() === "need-models"}>
+              <div class="speaker-notice">
+                <p class="control-note">
+                  Speaker detection needs a one-time model download (~35 MB), kept
+                  on your machine.
+                </p>
+                <p class="path-chip" title={diarizeModelsDir()}>
+                  {diarizeModelsDir()}
+                </p>
+                <div class="speaker-notice-actions">
+                  <button
+                    class="primary-btn tiny-btn"
+                    type="button"
+                    onClick={downloadDiarizationModels}
+                  >
+                    Download models
+                  </button>
+                  <button
+                    class="ghost-btn tiny-btn"
+                    type="button"
+                    onClick={() => setDiarizeStatus("idle")}
+                  >
+                    Not now
+                  </button>
+                </div>
+              </div>
+            </Show>
+
+            {/* Downloading */}
+            <Show when={diarizeStatus() === "downloading"}>
+              <div class="speaker-download">
+                <div class="progress-track model-track">
+                  <div
+                    class="progress-fill"
+                    classList={{ indeterminate: (downloadInfo()?.percent ?? null) === null }}
+                    style={
+                      downloadInfo()?.percent != null
+                        ? { width: `${downloadInfo()!.percent}%` }
+                        : undefined
+                    }
+                  />
+                </div>
+                <span class="speaker-dl-label">
+                  {downloadInfo()?.label ?? "Downloading…"}
+                  <Show when={downloadInfo()?.steps}>
+                    {" "}({downloadInfo()!.step}/{downloadInfo()!.steps})
+                  </Show>
+                </span>
+                <button
+                  class="ghost-btn tiny-btn"
+                  type="button"
+                  onClick={cancelDiarizationDownload}
+                >
+                  Cancel
+                </button>
+              </div>
+            </Show>
+
+            {/* Error */}
+            <Show when={diarizeStatus() === "error"}>
+              <span class="speaker-err">{diarizeError()}</span>
+              <button class="ghost-btn tiny-btn" type="button" onClick={runDetectSpeakers}>
+                Retry
+              </button>
+            </Show>
+
+            {/* Speakers detected → editable legend */}
+            <Show when={hasSpeakers() && diarizeStatus() === "idle"}>
+              <div class="speaker-legend">
+                <For each={speakers()}>
+                  {(idx) => (
+                    <div class="speaker-tag">
+                      <span class="spk-dot" style={{ background: speakerColor(idx) }} />
+                      <input
+                        class="spk-name"
+                        value={speakerLabel(idx)}
+                        onInput={(e) => renameSpeaker(idx, e.currentTarget.value)}
+                      />
+                    </div>
+                  )}
+                </For>
+                <button
+                  class="ghost-btn tiny-btn"
+                  type="button"
+                  onClick={runDetectSpeakers}
+                  title="Run detection again"
+                >
+                  Redetect
+                </button>
+              </div>
+            </Show>
+          </div>
+        </Show>
+
         <Show
           when={transcript.segments.length > 0}
           fallback={
@@ -426,6 +560,17 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
                 >
                   <div class="segment-main" onClick={() => selectSegment(i())}>
                     <span class="segment-time">{formatTime(seg.start)}</span>
+                    <Show when={seg.speaker != null}>
+                      <span
+                        class="spk-chip"
+                        style={{
+                          color: speakerColor(seg.speaker!),
+                          "border-color": speakerColor(seg.speaker!),
+                        }}
+                      >
+                        {speakerLabel(seg.speaker!)}
+                      </span>
+                    </Show>
                     <span class="segment-text">{seg.text}</span>
                   </div>
 
@@ -461,6 +606,25 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
                           <button class="tiny wide" title="Set to playhead" onClick={() => endToPlayhead(i())}>⌖</button>
                         </div>
                       </div>
+
+                      <Show when={hasSpeakers()}>
+                        <div class="timing-row spk-row">
+                          <span class="timing-label">Speaker</span>
+                          <select
+                            class="select spk-select"
+                            value={seg.speaker ?? ""}
+                            onChange={(e) =>
+                              reassignSpeaker(i(), Number(e.currentTarget.value))
+                            }
+                          >
+                            <For each={speakers()}>
+                              {(idx) => (
+                                <option value={idx}>{speakerLabel(idx)}</option>
+                              )}
+                            </For>
+                          </select>
+                        </div>
+                      </Show>
 
                       <div class="seg-actions">
                         <button class="ghost-btn tiny-btn" onClick={() => splitSegment(i())}>Split</button>

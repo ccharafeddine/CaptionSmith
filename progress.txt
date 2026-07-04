@@ -1137,3 +1137,30 @@ VERIFIED: cargo fmt --check / clippy -D warnings clean; cargo test 50 passed;
 npm run build clean (no frontend change this increment).
 REMAINING 6a: (4) editor UI — "Detect speakers" (missing-models -> offer the
 download), speaker chips, rename/reassign; (5) speaker-prefix export. Then 6b.
+
+--- 6a increment 4: editor UI (Detect speakers) -------------------------------
+DONE (frontend; gates green). Diarization is now user-visible.
+- src/diarize.ts: diarization UI store + actions. runDetectSpeakers() invokes the
+  `diarize` command over the CURRENT edited segments (unwrap) and writes the
+  returned speaker-tagged segments back; maps DIARIZE_MODELS_MISSING ->
+  "need-models", "cancelled" -> idle, else error. downloadDiarizationModels()
+  streams diarization-download-progress and auto-runs detection on success.
+  Editable speakerNames (fallback "Speaker N"), speakers() (distinct indices),
+  speakerColor(idx) (stable hsl, also previews 6b), reassignSpeaker(),
+  resetDiarization().
+- transcription.ts: exported currentSource(). App.tsx show() calls
+  resetDiarization() on new video (no circular import — diarize imports
+  transcription, not vice-versa).
+- TranscriptPanel: a .speaker-bar under the toolbar with the full state machine
+  (Detect / running+Cancel / need-models notice+Download / downloading progress+
+  Cancel / error+Retry / detected legend with per-speaker editable name + Redetect).
+  Each caption row shows a colored speaker chip; the segment editor gains a
+  Speaker <select> to reassign. app.css: speaker-bar/legend/chip/dot styles.
+VERIFIED: cargo clippy -D warnings clean; cargo test 50 passed (Rust untouched);
+npm run build clean.
+REMAINING 6a: (5) speaker-name PREFIX in sidecar/burn-in export. Then 6b
+(per-speaker coloring in preview + ASS) + macOS sidecar follow-up.
+LIVE-TEST NEEDED (needs a real multi-speaker video + the model download): the
+whole Detect flow, rename/reassign, and that it degrades cleanly on this Windows
+box (the sherpa sidecar placeholder is a copy of whisper-cli, so a real run would
+error -> shows the error, no crash).

@@ -11,6 +11,7 @@ import ExportBar from "./components/ExportBar";
 import Settings from "./components/Settings";
 import BatchPanel from "./components/BatchPanel";
 import { loadModels, setSource, transcript } from "./transcription";
+import { resetDiarization } from "./diarize";
 import { silentStartupCheck, updateAvailable } from "./updater";
 
 const VIDEO_EXTENSIONS = ["mp4", "mov", "mkv", "webm", "avi", "m4v"];
@@ -58,6 +59,7 @@ export default function App() {
     setError(null);
     setVideo({ path, src: convertFileSrc(path), name: basename(path) });
     setSource(path); // reset the shared transcript for the new source
+    resetDiarization(); // clear speaker state for the new source
   };
 
   const openPicked = (path: string) => {

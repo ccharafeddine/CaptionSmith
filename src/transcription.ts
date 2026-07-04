@@ -84,6 +84,11 @@ export function saveGpuPref(on: boolean) {
 
 let currentSrc = "";
 
+/** The loaded video's path — the audio source diarization runs on. */
+export function currentSource(): string {
+  return currentSrc;
+}
+
 export function isBusy(): boolean {
   return status() === "extracting" || status() === "transcribing";
 }

@@ -546,6 +546,115 @@ body {
   color: var(--fg-3);
 }
 
+/* ---------- Speaker detection / diarization ---------- */
+
+.speaker-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s4);
+  border-bottom: 1px solid var(--border);
+}
+
+.speaker-hint {
+  font-size: 11px;
+  color: var(--fg-3);
+}
+
+.speaker-running {
+  font-size: 12px;
+  color: var(--accent-2);
+}
+
+.speaker-err {
+  font-size: 12px;
+  color: var(--danger);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.speaker-notice,
+.speaker-download {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  width: 100%;
+}
+
+.speaker-download {
+  flex-direction: row;
+  align-items: center;
+}
+
+.speaker-notice-actions {
+  display: flex;
+  gap: var(--s2);
+}
+
+.speaker-dl-label {
+  font-size: 12px;
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+
+.speaker-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  width: 100%;
+}
+
+.speaker-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px var(--s2);
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+}
+
+.spk-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.spk-name {
+  width: 84px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--fg);
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+}
+
+/* A speaker attribution chip on a caption row. */
+.spk-chip {
+  flex-shrink: 0;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.6;
+  border: 1px solid;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.spk-row {
+  margin-top: var(--s1);
+}
+
+.spk-select {
+  flex: 1;
+}
+
 /* Non-fatal backend notice (e.g. GPU fell back to CPU). */
 .panel-note-info {
   margin: 0;

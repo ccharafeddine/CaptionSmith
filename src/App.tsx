@@ -9,6 +9,7 @@ import SidePanel from "./components/SidePanel";
 import CaptionOverlay from "./components/CaptionOverlay";
 import ExportBar from "./components/ExportBar";
 import Settings from "./components/Settings";
+import BatchPanel from "./components/BatchPanel";
 import { loadModels, setSource, transcript } from "./transcription";
 import { silentStartupCheck, updateAvailable } from "./updater";
 
@@ -42,6 +43,7 @@ export default function App() {
   const [error, setError] = createSignal<string | null>(null);
 
   const [showSettings, setShowSettings] = createSignal(false);
+  const [showBatch, setShowBatch] = createSignal(false);
 
   const [url, setUrl] = createSignal("");
   const [importing, setImporting] = createSignal(false);
@@ -154,7 +156,15 @@ export default function App() {
   return (
     <div class="app" classList={{ "is-dragging": dragging() }}>
       <header class="topbar">
-        <div class="topbar-side" />
+        <div class="topbar-side">
+          <button
+            class="ghost-btn"
+            type="button"
+            onClick={() => setShowBatch(true)}
+          >
+            Batch
+          </button>
+        </div>
         <div class="brand">
           <span class="brand-mark">Caption</span>
           <span class="brand-mark brand-accent">Smith</span>
@@ -212,6 +222,10 @@ export default function App() {
 
       <Show when={showSettings()}>
         <Settings onClose={() => setShowSettings(false)} />
+      </Show>
+
+      <Show when={showBatch()}>
+        <BatchPanel onClose={() => setShowBatch(false)} />
       </Show>
     </div>
   );

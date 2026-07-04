@@ -330,8 +330,8 @@ binaries are invoked as separate sidecar processes:
 
 ## Roadmap
 
-v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1–4 are
-**shipped**; item 5 (batch captioning) is next.
+v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1–5 are
+**shipped**; item 6 (speaker labels / diarization) is next and last.
 
 1. **Settings gearwheel + update-check + model management.** ✅ Shipped. A gearwheel top-right
    of the header opens a settings panel (logo stays centered, 3-column grid). It
@@ -385,7 +385,14 @@ v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1–4 are
    - License/size unchanged: GPU backends are license-neutral; the app is GPL
      only because of `libx264`. Metal adds ~0; Vulkan adds little (embedded
      SPIR-V).
-5. **Batch captioning.** Caption multiple files in one pass.
+5. **Batch captioning.** ✅ Shipped. A "Batch" modal (header, always available)
+   queues N videos and runs each through the SAME per-file backend commands the
+   single-file flow uses (`transcribe` → `export_sidecar` or `burn_in`) — pure
+   frontend orchestration in `src/batch.ts`, no new Rust. Sequential,
+   cancellable, and resilient (one file failing doesn't stop the batch). Picks
+   output format (SRT/VTT/ASS sidecar or burn-in MP4), an output folder, a caption
+   preset, and the model/language, then shows per-file progress + results. No
+   per-file editing by design (can't hand-tune N transcripts).
 6. **Speaker labels / diarization.** The heaviest item; do it last.
 
 Horizon (not scheduled): code-signing + notarization, done suite-wide across

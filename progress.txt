@@ -964,3 +964,48 @@ Item 4 (4a Metal + 4b Vulkan) is now fully shipped + build-validated. README +
 CLAUDE roadmaps updated (items 1-4 shipped; item 5 batch captioning next). The
 runtime GPU speedup itself shows on real hardware at release; the builds and the
 CPU-fallback logic are proven.
+
+
+--- Roadmap item 5: Batch captioning -----------------------------------------
+DONE (code complete + gates green; needs live-window test — see below).
+
+Design: MAXIMAL REUSE. The single-file commands (transcribe, export_sidecar,
+burn_in) already take explicit paths, so batch is pure FRONTEND orchestration
+over them — ZERO new Rust. A JS loop processes files sequentially.
+
+- src/batch.ts: batch store (files[] with per-file status/percent/output/error)
+  + signals (batchFormat, batchDir, batchRunning). runBatch() loops queued files:
+  for each -> invoke("transcribe", {src, language, translate, wordTimestamps:
+  style.perWord, model, gpu}) then either invoke("burn_in", {src, segments,
+  style, out}) for mp4 or invoke("export_sidecar", {segments, style, format,
+  path}) for srt/vtt/ass. Output name = <stem>.<fmt> (or <stem>_captioned.mp4)
+  in the chosen folder. One set of extract/transcribe/burn-progress listeners
+  routes to the current index (batch is strictly sequential). Resilient: a file
+  error is recorded and the loop continues; only a user cancel breaks it.
+  cancelBatch() sets a flag + calls cancel_transcribe/cancel_burn.
+- src/components/BatchPanel.tsx: a modal (reuses .modal styles). Add files
+  (multi-select dialog), a scrollable file list with per-row status + mini
+  progress + remove, and options: output format, model (+ language/translate when
+  multilingual), output folder (default <Documents>/CaptionSmith/Exports via
+  ensure_export_dir, changeable), and a caption-style preset grid. Start/Cancel +
+  "N / M done". Esc/backdrop close, blocked while running.
+- App.tsx: a "Batch" ghost button in the (previously empty) left header slot,
+  always available; renders BatchPanel. Works with no video loaded.
+- Refactors for reuse (no behavior change): moved LANGUAGES into transcription.ts
+  and PRESET_LABELS into style.ts; TranscriptPanel + StylePanel import them now.
+
+Notes: batch has NO per-file editing (can't hand-tune N transcripts) — that's the
+main window's job; batch is fire-and-forget with the current style + settings.
+
+VERIFIED (all four gates green):
+- cargo fmt --check / clippy -D warnings => clean; cargo test => 44 passed
+  (Rust untouched by this item).
+- npm run build (tsc --noEmit + vite) => clean.
+
+STILL NEEDS LIVE-WINDOW TESTING (run `npm run tauri dev`):
+- Open Batch, add several videos, pick SRT -> Start; confirm each transcribes and
+  a .srt lands in the folder, per-row status + progress update, "N / M done".
+- Try Burn-in MP4 on 2 files; confirm captioned .mp4s and per-file burn progress.
+- Cancel mid-run: the in-flight file stops, remaining stay queued, no crash.
+- Point one entry at a non-media file: it shows an error and the batch continues.
+- Switch model/preset/folder in the modal and confirm they take effect.

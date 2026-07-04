@@ -4,7 +4,7 @@ import {
   applyPreset,
   type Emphasis,
   FONTS,
-  type Preset,
+  PRESET_LABELS,
   setStyle,
   style,
 } from "../style";
@@ -15,15 +15,6 @@ import {
   status,
   transcript,
 } from "../transcription";
-
-const PRESET_LABELS: { key: Preset; label: string }[] = [
-  { key: "bottomBar", label: "Bottom bar" },
-  { key: "boldSocial", label: "Bold social" },
-  { key: "cleanTop", label: "Clean top" },
-  { key: "neon", label: "Neon" },
-  { key: "wordHighlight", label: "Word highlight" },
-  { key: "karaokePop", label: "Karaoke pop" },
-];
 
 const EMPHASIS_LABELS: { key: Emphasis; label: string }[] = [
   { key: "color", label: "Color" },

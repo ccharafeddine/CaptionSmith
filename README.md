@@ -83,6 +83,8 @@ longer; a progress bar and a Cancel button show while it runs.
   for non-speech lines like `[laughs]`
 - **Bring your own transcript** — import an existing `.srt` or `.vtt` file to
   style and burn in, skipping transcription entirely
+- **Batch captioning** — queue several videos and caption them all in one pass
+  with your chosen style, exporting sidecars or burned-in MP4s to a folder
 - **Caption styles** — six presets (bottom bar, bold social, clean top, neon,
   word highlight, karaoke pop) with controls for font, size, color, outline,
   position, and words-per-line, over a live preview. The **karaoke** styles pop
@@ -208,7 +210,7 @@ Forward (in order):
 2. [x] SRT / VTT import — bring your own transcript, style it, burn it
 3. [x] More caption style presets + per-word emphasis
 4. [x] GPU-accelerated transcription (Metal on macOS, Vulkan on Windows)
-5. [ ] Batch captioning of multiple files
+5. [x] Batch captioning of multiple files
 6. [ ] Speaker labels / diarization (heaviest; last)
 
 Horizon (not scheduled): code-signing + notarization, done across the whole

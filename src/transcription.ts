@@ -23,6 +23,25 @@ export type Status =
   | "error"
   | "model-missing";
 
+// Whisper language codes offered in the pickers (transcript panel + batch).
+// "auto" only means something with a multilingual model.
+export const LANGUAGES = [
+  { code: "auto", name: "Auto-detect" },
+  { code: "en", name: "English" },
+  { code: "es", name: "Spanish" },
+  { code: "fr", name: "French" },
+  { code: "de", name: "German" },
+  { code: "it", name: "Italian" },
+  { code: "pt", name: "Portuguese" },
+  { code: "nl", name: "Dutch" },
+  { code: "ru", name: "Russian" },
+  { code: "ja", name: "Japanese" },
+  { code: "ko", name: "Korean" },
+  { code: "zh", name: "Chinese" },
+  { code: "ar", name: "Arabic" },
+  { code: "hi", name: "Hindi" },
+];
+
 const MODEL_NOT_FOUND = "MODEL_NOT_FOUND|";
 
 // The transcript: segments are edited in place by the transcript panel and read

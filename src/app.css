@@ -860,6 +860,140 @@ body {
   margin-bottom: var(--s1);
 }
 
+/* ---------- Batch captioning ---------- */
+
+.batch-modal {
+  width: min(620px, 100%);
+  gap: var(--s3);
+}
+
+.batch-files-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.batch-count {
+  font-size: 12px;
+  color: var(--fg-3);
+}
+
+.batch-empty {
+  margin: 0;
+  padding: var(--s4);
+  text-align: center;
+  font-size: 13px;
+  color: var(--fg-3);
+  background: var(--bg-control);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-control);
+}
+
+.batch-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.batch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+}
+
+.batch-row[data-status="done"] {
+  border-color: color-mix(in srgb, var(--accent-2) 40%, var(--border));
+}
+
+.batch-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.batch-name {
+  font-size: 13px;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.batch-status {
+  font-size: 11px;
+  color: var(--fg-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.batch-output {
+  color: var(--accent-2);
+}
+
+.batch-err {
+  color: var(--danger);
+}
+
+.batch-row-right {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-shrink: 0;
+}
+
+.tiny-x {
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+}
+
+.batch-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--border);
+}
+
+.batch-dir {
+  flex: 1;
+  min-width: 0;
+}
+
+.batch-preset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.batch-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--border);
+}
+
+.batch-progress-text {
+  font-size: 12px;
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Transcript toolbar + segment list ---------- */
 
 .transcript-toolbar {

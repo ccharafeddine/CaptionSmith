@@ -16,6 +16,16 @@ export type Preset =
 // expressible in both the HTML preview and the ASS burn-in.
 export type Emphasis = "color" | "grow" | "underline";
 
+// Preset display order + labels, shared by the style panel and the batch modal.
+export const PRESET_LABELS: { key: Preset; label: string }[] = [
+  { key: "bottomBar", label: "Bottom bar" },
+  { key: "boldSocial", label: "Bold social" },
+  { key: "cleanTop", label: "Clean top" },
+  { key: "neon", label: "Neon" },
+  { key: "wordHighlight", label: "Word highlight" },
+  { key: "karaokePop", label: "Karaoke pop" },
+];
+
 export type CaptionStyle = {
   preset: Preset;
   font: string; // CSS font-family (also the ASS font name for burn-in)

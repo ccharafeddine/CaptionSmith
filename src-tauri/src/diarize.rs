@@ -185,8 +185,11 @@ fn run_diarize(
         return Err("cancelled".into());
     }
 
+    // Threads are per-model here (there is no top-level --num-threads).
+    let t = threads();
     let mut cmd = std::process::Command::new(bin);
-    cmd.arg(format!("--num-threads={}", threads()))
+    cmd.arg(format!("--segmentation.num-threads={t}"))
+        .arg(format!("--embedding.num-threads={t}"))
         .arg(format!(
             "--segmentation.pyannote-model={}",
             seg_model.display()

@@ -83,7 +83,8 @@ jobs:
 
           # Exactly the args diarize.rs builds.
           "$BIN" \
-            --num-threads=2 \
+            --segmentation.num-threads=2 \
+            --embedding.num-threads=2 \
             "--segmentation.pyannote-model=$SEG" \
             --embedding.model=embedding.onnx \
             --clustering.cluster-threshold=0.5 \

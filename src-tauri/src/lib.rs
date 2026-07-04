@@ -66,6 +66,10 @@ pub fn run() {
             updater::open_release_page,
             diarize::diarize,
             diarize::cancel_diarize,
+            diarize::diarization_models_present,
+            diarize::diarization_folder,
+            diarize::download_diarization_models,
+            diarize::cancel_diarization_download,
             ensure_export_dir,
         ])
         .run(tauri::generate_context!())

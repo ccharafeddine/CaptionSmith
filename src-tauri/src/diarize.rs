@@ -11,10 +11,15 @@
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
-use tauri::{AppHandle, Manager, State};
+use futures_util::StreamExt;
+use serde::Serialize;
+use tauri::{AppHandle, Emitter, Manager, State};
+use tokio::io::AsyncWriteExt;
 
 use crate::ffmpeg;
 use crate::proc::Cancellation;
@@ -27,10 +32,19 @@ use crate::transcribe::Segment;
 const SEG_MODEL: &str = "segmentation.onnx";
 const EMB_MODEL: &str = "embedding.onnx";
 
-/// Managed cancel handle for the in-flight diarization.
+// On-first-use model sources (item 6a, increment 3). These are sherpa-onnx's OWN
+// converted models — the exact ones the CI verify proved work end to end. The
+// segmentation model ships as a .tar.bz2 (extracted via the system tar); the
+// embedding model is a direct .onnx.
+const SEG_ARCHIVE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2";
+const EMB_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx";
+
+/// Managed state for diarization: a cancel handle for the in-flight run, and a
+/// separate flag for cancelling the model download.
 #[derive(Default)]
 pub struct DiarizeState {
     cancel: Cancellation,
+    download_cancel: Arc<AtomicBool>,
 }
 
 /// A stretch of audio attributed to one speaker.
@@ -143,6 +157,235 @@ fn resolve_models(app: &AppHandle) -> Result<(PathBuf, PathBuf), String> {
 #[tauri::command]
 pub fn cancel_diarize(state: State<'_, DiarizeState>) {
     state.cancel.cancel();
+}
+
+// ---- On-first-use model download --------------------------------------------
+
+#[derive(Clone, Serialize)]
+struct DiarizationDownloadProgress {
+    /// Human label for the current file ("segmentation model" / "embedding model").
+    file: String,
+    percent: Option<f64>,
+    received: u64,
+    total: Option<u64>,
+    step: u32,
+    steps: u32,
+}
+
+/// Whether both diarization models are already downloaded.
+#[tauri::command]
+pub fn diarization_models_present(app: AppHandle) -> bool {
+    resolve_models(&app).is_ok()
+}
+
+/// The diarization models folder (created if missing), for the UI.
+#[tauri::command]
+pub fn diarization_folder(app: AppHandle) -> Result<String, String> {
+    let dir = diarization_dir(&app).ok_or("no data directory")?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("could not create folder: {e}"))?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+pub fn cancel_diarization_download(state: State<'_, DiarizeState>) {
+    state.download_cancel.store(true, Ordering::SeqCst);
+}
+
+/// Download both ONNX models into the diarization folder (segmentation.onnx +
+/// embedding.onnx), streaming "diarization-download-progress" and honouring
+/// cancellation. Files already present are skipped, so a cancelled run resumes
+/// at file granularity.
+#[tauri::command]
+pub async fn download_diarization_models(
+    app: AppHandle,
+    state: State<'_, DiarizeState>,
+) -> Result<(), String> {
+    let cancel = state.download_cancel.clone();
+    cancel.store(false, Ordering::SeqCst);
+
+    let dir = diarization_dir(&app).ok_or("no data directory")?;
+    tokio::fs::create_dir_all(&dir)
+        .await
+        .map_err(|e| format!("create folder: {e}"))?;
+
+    let client = reqwest::Client::builder()
+        .build()
+        .map_err(|e| format!("http client: {e}"))?;
+
+    // 1/2: segmentation model — download the .tar.bz2, extract its model.onnx.
+    let seg_dest = dir.join(SEG_MODEL);
+    if !seg_dest.exists() {
+        let archive = dir.join("segmentation.tar.bz2");
+        stream_to_file(
+            &app,
+            &client,
+            &cancel,
+            SEG_ARCHIVE_URL,
+            &archive,
+            "segmentation model",
+            1,
+        )
+        .await?;
+        extract_model_onnx(&archive, &seg_dest).await?;
+        let _ = tokio::fs::remove_file(&archive).await;
+    }
+
+    // 2/2: embedding model — a direct .onnx.
+    let emb_dest = dir.join(EMB_MODEL);
+    if !emb_dest.exists() {
+        stream_to_file(
+            &app,
+            &client,
+            &cancel,
+            EMB_URL,
+            &emb_dest,
+            "embedding model",
+            2,
+        )
+        .await?;
+    }
+
+    Ok(())
+}
+
+/// Stream `url` to `dest` via a `<dest>.part` temp (so a partial download is
+/// never mistaken for a real model), emitting progress and honouring cancel.
+async fn stream_to_file(
+    app: &AppHandle,
+    client: &reqwest::Client,
+    cancel: &AtomicBool,
+    url: &str,
+    dest: &Path,
+    label: &str,
+    step: u32,
+) -> Result<(), String> {
+    let part = {
+        let mut s = dest.as_os_str().to_owned();
+        s.push(".part");
+        PathBuf::from(s)
+    };
+
+    let resp = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("request failed: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("download failed: HTTP {}", resp.status()));
+    }
+    let total = resp.content_length();
+
+    let mut out = tokio::fs::File::create(&part)
+        .await
+        .map_err(|e| format!("could not create file: {e}"))?;
+    let mut stream = resp.bytes_stream();
+    let mut received: u64 = 0;
+    let mut last_emit: u64 = 0;
+
+    while let Some(chunk) = stream.next().await {
+        if cancel.load(Ordering::SeqCst) {
+            drop(out);
+            let _ = tokio::fs::remove_file(&part).await;
+            return Err("cancelled".into());
+        }
+        let chunk = chunk.map_err(|e| format!("download error: {e}"))?;
+        out.write_all(&chunk)
+            .await
+            .map_err(|e| format!("write error: {e}"))?;
+        received += chunk.len() as u64;
+
+        if received - last_emit >= 1_000_000 {
+            last_emit = received;
+            let percent = total.map(|t| {
+                if t > 0 {
+                    received as f64 / t as f64 * 100.0
+                } else {
+                    0.0
+                }
+            });
+            let _ = app.emit(
+                "diarization-download-progress",
+                DiarizationDownloadProgress {
+                    file: label.to_string(),
+                    percent,
+                    received,
+                    total,
+                    step,
+                    steps: 2,
+                },
+            );
+        }
+    }
+
+    out.flush().await.map_err(|e| format!("flush error: {e}"))?;
+    drop(out);
+    tokio::fs::rename(&part, dest)
+        .await
+        .map_err(|e| format!("could not finalize download: {e}"))?;
+    let _ = app.emit(
+        "diarization-download-progress",
+        DiarizationDownloadProgress {
+            file: label.to_string(),
+            percent: Some(100.0),
+            received,
+            total,
+            step,
+            steps: 2,
+        },
+    );
+    Ok(())
+}
+
+/// Extract `model.onnx` from the segmentation .tar.bz2 to `dest`, using the
+/// system `tar` (bsdtar on Windows 10+/macOS both handle bzip2) so we don't need
+/// a Rust bzip2/tar decoder.
+async fn extract_model_onnx(archive: &Path, dest: &Path) -> Result<(), String> {
+    let archive = archive.to_path_buf();
+    let dest = dest.to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        let tmp = archive
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join("seg-extract");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).map_err(|e| format!("temp dir: {e}"))?;
+
+        let mut cmd = std::process::Command::new("tar");
+        cmd.arg("xf").arg(&archive).arg("-C").arg(&tmp);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x0800_0000);
+        }
+        let status = cmd
+            .status()
+            .map_err(|e| format!("could not run tar to extract the model: {e}"))?;
+        if !status.success() {
+            return Err("could not extract the segmentation model archive.".into());
+        }
+
+        let found = find_file(&tmp, "model.onnx").ok_or("model.onnx not found in the archive")?;
+        std::fs::copy(&found, &dest).map_err(|e| format!("could not save the model: {e}"))?;
+        let _ = std::fs::remove_dir_all(&tmp);
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("task join: {e}"))?
+}
+
+/// Recursively find the first file named `name` under `dir`.
+fn find_file(dir: &Path, name: &str) -> Option<PathBuf> {
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let p = entry.path();
+        if p.is_dir() {
+            if let Some(found) = find_file(&p, name) {
+                return Some(found);
+            }
+        } else if p.file_name().and_then(|n| n.to_str()) == Some(name) {
+            return Some(p);
+        }
+    }
+    None
 }
 
 /// Run diarization on `src` and return `segments` with each one's `speaker` set.

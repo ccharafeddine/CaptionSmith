@@ -1115,3 +1115,25 @@ first use into the diarization folder as segmentation.onnx + embedding.onnx
 (reuse models.rs downloader); (4) editor UI "Detect speakers" + speaker chips +
 rename/reassign; (5) speaker-prefix export. Then 6b coloring. Plus macOS sidecar
 follow-up (verify the osx static archive on a macOS runner).
+
+--- 6a increment 3: on-first-use diarization model download -------------------
+DONE (backend; gates green). Reuses the models.rs streaming pattern.
+- diarize.rs gained: download_diarization_models (async), cancel_diarization_
+  download, diarization_models_present, diarization_folder — registered in lib.rs.
+- Downloads sherpa-onnx's OWN models (the ones the verify proved) into
+  <AppData>/CaptionSmith/diarization:
+    * segmentation: the sherpa-onnx-pyannote-segmentation-3-0.tar.bz2 -> extract
+      model.onnx via the SYSTEM tar (bsdtar on Win10+/macOS both do bzip2; no
+      Rust bzip2/tar dep) -> segmentation.onnx
+    * embedding: the 3dspeaker eres2net .onnx (direct) -> embedding.onnx
+  Streams "diarization-download-progress" {file,percent,received,total,step,steps}
+  via <dest>.part then rename; skips files already present (resume at file
+  granularity); cancellable. NOT the onnx-community pyannote export (unverified
+  vs sherpa) — deliberately sherpa's converted model.
+- Grounded, not guessed: the URLs + the tar-extraction approach are already
+  CI-proven by verify-sherpa.yml's end-to-end run; the Rust download mirrors the
+  proven models.rs downloader.
+VERIFIED: cargo fmt --check / clippy -D warnings clean; cargo test 50 passed;
+npm run build clean (no frontend change this increment).
+REMAINING 6a: (4) editor UI — "Detect speakers" (missing-models -> offer the
+download), speaker chips, rename/reassign; (5) speaker-prefix export. Then 6b.

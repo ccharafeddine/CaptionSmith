@@ -1094,3 +1094,24 @@ Ran verify-sherpa.yml on windows-latest. Findings (resolve all the unknowns):
   speaker-recongition-models.
 Decision: bundle the STATIC single exe as the diarization sidecar (externalBin),
 download the ONNX models on first use (as scoped).
+
+--- 6a increment 2 COMPLETE + validated end-to-end -----------------------------
+verify-sherpa.yml now runs a REAL diarization on windows-latest (downloads the
+pyannote segmentation + eres2net embedding models + a 4-speaker sample wav, runs
+the sidecar with the exact args diarize.rs builds) => GREEN: turns print in the
+"start -- end speaker_NN" format parse_turns parses. The end-to-end caught a real
+bug: the CLI has NO top-level --num-threads (it's --segmentation.num-threads /
+--embedding.num-threads); fixed in diarize.rs + the workflow.
+Shipped this increment:
+- scripts/fetch-sherpa.sh: downloads the win-x64 STATIC archive, extracts just
+  the self-contained sherpa-onnx-offline-speaker-diarization.exe ->
+  binaries/<name>-x86_64-pc-windows-msvc.exe. macOS = marked follow-up.
+- tauri.windows.conf.json: added the sidecar to externalBin (Windows-first, like
+  whisper-cli-gpu). Local dev needs a placeholder (gitignored, created by copying
+  any exe).
+- release.yml: fetch step now also runs fetch-sherpa.sh.
+Diarization BACKEND is proven. REMAINING 6a: (3) download the 2 ONNX models on
+first use into the diarization folder as segmentation.onnx + embedding.onnx
+(reuse models.rs downloader); (4) editor UI "Detect speakers" + speaker chips +
+rename/reassign; (5) speaker-prefix export. Then 6b coloring. Plus macOS sidecar
+follow-up (verify the osx static archive on a macOS runner).

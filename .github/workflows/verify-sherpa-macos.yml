@@ -1,0 +1,79 @@
+name: Verify sherpa-onnx diarization sidecar (macOS)
+
+# Discovery + verify for the macOS diarization sidecar (item 6, macOS follow-up).
+# Confirms the osx universal2 STATIC archive yields a self-contained, universal
+# (arm64 + x86_64) offline-speaker-diarization exe, and runs a real diarization
+# to prove the same CLI contract works on macOS. Windows is already validated by
+# verify-sherpa.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "sherpa-onnx release version"
+        default: "1.12.40"
+
+jobs:
+  probe-sherpa-macos:
+    runs-on: macos-14
+    steps:
+      - name: Download + extract the osx universal2 STATIC build
+        shell: bash
+        run: |
+          set -euxo pipefail
+          V="${{ github.event.inputs.version }}"
+          URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v${V}/sherpa-onnx-v${V}-osx-universal2-static.tar.bz2"
+          curl -fL --retry 3 -o s.tar.bz2 "$URL"
+          mkdir -p s && tar xf s.tar.bz2 -C s
+
+      - name: Confirm universal + self-contained + exposes our flags
+        shell: bash
+        run: |
+          set -euxo pipefail
+          BIN="$(find s -name 'sherpa-onnx-offline-speaker-diarization' -type f | head -1)"
+          test -n "$BIN"
+
+          echo "== lipo (must be universal: arm64 + x86_64) =="
+          lipo -info "$BIN"
+          lipo -info "$BIN" | grep -q arm64
+          lipo -info "$BIN" | grep -q x86_64
+
+          echo "== otool -L (should be system libs only) =="
+          otool -L "$BIN" || true
+
+          # Run it ISOLATED (copied alone) to confirm it's self-contained.
+          D="$(mktemp -d)"; cp "$BIN" "$D/"
+          ( cd "$D" && ./sherpa-onnx-offline-speaker-diarization > u.txt 2>&1 || true )
+          grep -q -- "--segmentation.pyannote-model" "$D/u.txt"
+          echo "OK: universal2 self-contained diarization exe."
+
+      - name: End-to-end — real diarization on macOS
+        shell: bash
+        run: |
+          set -uxo pipefail
+          BIN="$(find s -name 'sherpa-onnx-offline-speaker-diarization' -type f | head -1)"
+
+          curl -fL --retry 3 -o seg.tar.bz2 \
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2"
+          mkdir -p seg && tar xf seg.tar.bz2 -C seg
+          SEG="$(find seg -name model.onnx -type f | head -1)"
+          curl -fL --retry 3 -o embedding.onnx \
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx"
+
+          if ! curl -fL --retry 3 -o test.wav \
+              "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/0-four-speakers-zh.wav"; then
+            echo "sample wav unavailable — skipping the live run (binary already verified)."
+            exit 0
+          fi
+
+          "$BIN" \
+            --segmentation.num-threads=2 \
+            --embedding.num-threads=2 \
+            "--segmentation.pyannote-model=$SEG" \
+            --embedding.model=embedding.onnx \
+            --clustering.cluster-threshold=0.5 \
+            test.wav > turns.txt 2> diar.err || true
+          echo "----- stdout (turns) -----"; cat turns.txt; echo "--------------------------"
+          if ! grep -qE '^[0-9]+\.[0-9]+ -- [0-9]+\.[0-9]+ speaker_[0-9]+' turns.txt; then
+            echo "::error::no speaker turns in the expected format"; tail -20 diar.err; exit 1
+          fi
+          echo "OK: macOS real diarization produced turns in the expected format."

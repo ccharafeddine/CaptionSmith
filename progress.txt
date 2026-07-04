@@ -1192,3 +1192,35 @@ REMAINING for item 6 to be fully done:
     sidecar BACKEND is CI-proven; the full in-app flow needs a real sherpa binary
     + models — a release build or dropping the real exe into binaries/).
 README roadmap item 6 stays [ ] until 6b + macOS land.
+
+--- 6b: per-speaker caption coloring ------------------------------------------
+DONE (gates green). Each caption is colored by its speaker in the live preview
+AND the ASS burn-in, opt-in via a "Color" toggle.
+- Shared palette: 8 hex colors defined in BOTH src/diarize.ts (SPEAKER_PALETTE)
+  and src-tauri/src/subtitles.rs (SPEAKER_PALETTE) — MUST stay in sync so preview
+  == burn-in. Speaker 1/2 = Smith cyan/violet. speakerColor(idx) switched from
+  hsl to this palette (chips now use it too).
+- style.ts: CaptionStyle += colorBySpeaker (orthogonal to presets — excluded from
+  PRESETS Omit, initialized false, preserved across applyPreset via store merge).
+- CaptionOverlay: baseColor() = speaker color when colorBySpeaker && speaker set,
+  else primaryColor.
+- subtitles.rs to_ass: per-segment seg_color from speaker_ass_color(); plain
+  segments get a leading {\c<color>&} override; karaoke passes seg_color as the
+  non-active-word "primary" (active word still highlightColor). +2 tests
+  (colors-by-speaker, no-color-when-flag-off). CaptionStyle Rust struct +=
+  color_by_speaker; both test style() helpers updated.
+- TranscriptPanel: a "Color" checkbox in the speaker legend toggles
+  style.colorBySpeaker.
+VERIFIED: cargo fmt --check/clippy -D warnings clean; cargo test 52 passed (+2);
+npm run build clean.
+
+=== item 6 status: 6a + 6b BUILT (Windows), validated where possible ==========
+Speaker labels + editing + prefix export + per-speaker coloring all shipped.
+The diarization sidecar BACKEND is CI-proven end-to-end (real diarization on
+windows-latest). REMAINING to fully close item 6:
+  - macOS diarization sidecar: discover the osx static archive (like the Windows
+    verify), add a Darwin branch to fetch-sherpa.sh, wire into base externalBin
+    or tauri.macos.conf.json, and a macOS verify.
+  - A real in-app end-to-end run on a multi-speaker video (needs the real sherpa
+    exe + models locally; this Windows box has a placeholder sidecar).
+README roadmap item 6 stays [ ] until the macOS sidecar lands.

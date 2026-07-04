@@ -30,7 +30,7 @@ import {
 } from "../diarize";
 import { formatTime, formatPrecise } from "../format";
 import { isFormControl } from "../keys";
-import { style } from "../style";
+import { setStyle, style } from "../style";
 import {
   cancelTranscribe,
   errorMsg,
@@ -527,6 +527,16 @@ export default function TranscriptPanel(props: TranscriptPanelProps) {
                     </div>
                   )}
                 </For>
+                <label class="control-check spk-color-toggle">
+                  <input
+                    type="checkbox"
+                    checked={style.colorBySpeaker}
+                    onChange={(e) =>
+                      setStyle("colorBySpeaker", e.currentTarget.checked)
+                    }
+                  />
+                  <span>Color</span>
+                </label>
                 <button
                   class="ghost-btn tiny-btn"
                   type="button"

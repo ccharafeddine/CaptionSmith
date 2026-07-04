@@ -62,9 +62,24 @@ export function hasSpeakers(): boolean {
   return speakers().length > 0;
 }
 
-/** A stable, subtle color per speaker index (also previews 6b coloring). */
+// Stable per-speaker palette. MUST stay in sync with SPEAKER_PALETTE in
+// src-tauri/src/subtitles.rs so the live preview and the ASS burn-in agree on
+// each speaker's color. Speaker 1/2 are the Smith cyan/violet accents.
+const SPEAKER_PALETTE = [
+  "#45f2f2",
+  "#a974ff",
+  "#ffd24d",
+  "#6ee27a",
+  "#ff7a7a",
+  "#7ab8ff",
+  "#ff9de0",
+  "#ffa94d",
+];
+
+/** A stable hex color per speaker index (chips, preview, and — matched in Rust —
+ *  the ASS burn-in). */
 export function speakerColor(idx: number): string {
-  return `hsl(${(idx * 67) % 360} 70% 62%)`;
+  return SPEAKER_PALETTE[idx % SPEAKER_PALETTE.length];
 }
 
 /** Move a segment to a different speaker. */

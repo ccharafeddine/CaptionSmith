@@ -393,7 +393,9 @@ v1 shipped. Post-v1 work is ordered — do them top to bottom. Items 1–5 are
    output format (SRT/VTT/ASS sidecar or burn-in MP4), an output folder, a caption
    preset, and the model/language, then shows per-file progress + results. No
    per-file editing by design (can't hand-tune N transcripts).
-6. **Speaker labels / diarization.** SCOPED, not yet built. The heaviest item —
+6. **Speaker labels / diarization.** 6a + 6b BUILT and validated (Windows); the
+   macOS diarization sidecar is the only remaining piece (the sidecar backend is
+   CI-proven end-to-end, incl. a real diarization run). The heaviest item —
    new ML machinery, not a reuse-and-wire like 2–5. whisper.cpp does NOT assign
    speaker identities, so this needs a real diarization engine. Decisions made:
    **engine = sherpa-onnx** (pyannote segmentation ONNX + speaker-embedding ONNX

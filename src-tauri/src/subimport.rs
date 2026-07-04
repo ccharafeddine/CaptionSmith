@@ -257,6 +257,7 @@ mod integration {
             highlight_color: "#45f2f2".into(),
             per_word: false,
             emphasis: "color".into(),
+            color_by_speaker: false,
             outline: 0.0,
             shadow: false,
             boxed: true,

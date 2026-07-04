@@ -37,6 +37,9 @@ export type CaptionStyle = {
   // Decoupled from `preset` so any preset can opt in and new ones can too.
   perWord: boolean;
   emphasis: Emphasis; // how the active word pops (per-word styles only)
+  // Color each caption by its speaker (item 6b). Orthogonal to the preset, so it
+  // survives preset changes; only meaningful once speakers are detected.
+  colorBySpeaker: boolean;
   outline: number; // 0..10 (stroke em = outline * 0.02)
   shadow: boolean;
   box: boolean; // semi-transparent background behind lines
@@ -57,8 +60,11 @@ export const FONTS = [
 
 const SYNE = FONTS[0].value;
 
-// Per-preset field overrides applied on top of the current style.
-const PRESETS: Record<Preset, Omit<CaptionStyle, "preset">> = {
+// Per-preset field overrides applied on top of the current style. `preset` and
+// `colorBySpeaker` are excluded: the former is the key, the latter is a global
+// toggle that must survive preset changes (applyPreset merges, so omitting it
+// here preserves the current value).
+const PRESETS: Record<Preset, Omit<CaptionStyle, "preset" | "colorBySpeaker">> = {
   bottomBar: {
     font: SYNE,
     fontSizePct: 5.5,
@@ -165,6 +171,7 @@ const PRESETS: Record<Preset, Omit<CaptionStyle, "preset">> = {
 
 export const [style, setStyle] = createStore<CaptionStyle>({
   preset: "bottomBar",
+  colorBySpeaker: false,
   ...PRESETS.bottomBar,
 });
 

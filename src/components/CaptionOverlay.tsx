@@ -2,6 +2,7 @@ import { type Accessor, createMemo, For, type JSX, Show } from "solid-js";
 
 import { transcript } from "../transcription";
 import { style } from "../style";
+import { speakerColor } from "../diarize";
 
 type CaptionOverlayProps = {
   currentTime: Accessor<number>;
@@ -60,6 +61,15 @@ export default function CaptionOverlay(props: CaptionOverlayProps) {
     return s;
   };
 
+  // Base text color: the speaker's color when "color by speaker" is on and this
+  // segment has a speaker, else the style's primary color.
+  const baseColor = () => {
+    const spk = activeSegment()?.speaker;
+    return style.colorBySpeaker && spk != null
+      ? speakerColor(spk)
+      : style.primaryColor;
+  };
+
   const blockStyle = (): JSX.CSSProperties => {
     const s: JSX.CSSProperties = {
       top: `${style.position}%`,
@@ -68,7 +78,7 @@ export default function CaptionOverlay(props: CaptionOverlayProps) {
       "font-family": `"${style.font}", sans-serif`,
       "font-size": `${style.fontSizePct}cqh`,
       "font-weight": String(style.weight),
-      color: style.primaryColor,
+      color: baseColor(),
       "paint-order": "stroke fill",
     };
     if (style.outline > 0) {

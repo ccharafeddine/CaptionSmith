@@ -660,6 +660,11 @@ body {
   white-space: nowrap;
 }
 
+.spk-color-toggle {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 /* Non-fatal backend notice (e.g. GPU fell back to CPU). */
 .panel-note-info {
   margin: 0;

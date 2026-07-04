@@ -27,6 +27,8 @@ pub struct CaptionStyle {
     pub per_word: bool,
     /// How the active word is emphasized: "color" | "grow" | "underline".
     pub emphasis: String,
+    /// Color each caption by its speaker (item 6b).
+    pub color_by_speaker: bool,
     pub outline: f64,
     pub shadow: bool,
     #[serde(rename = "box")]
@@ -130,6 +132,17 @@ fn cased(s: &str, upper: bool) -> String {
     } else {
         s.to_string()
     }
+}
+
+// Stable per-speaker palette. MUST stay in sync with SPEAKER_PALETTE in
+// src/diarize.ts so the ASS burn-in matches the live preview + the editor chips.
+const SPEAKER_PALETTE: [&str; 8] = [
+    "#45f2f2", "#a974ff", "#ffd24d", "#6ee27a", "#ff7a7a", "#7ab8ff", "#ff9de0", "#ffa94d",
+];
+
+/// ASS color for a speaker index (item 6b), matching the frontend palette.
+fn speaker_ass_color(idx: u32) -> String {
+    ass_color(SPEAKER_PALETTE[idx as usize % SPEAKER_PALETTE.len()])
 }
 
 /// #rrggbb -> ASS "&H00BBGGRR" (opaque).
@@ -264,6 +277,15 @@ pub fn to_ass(segments: &[Segment], style: &CaptionStyle, play_w: u32, play_h: u
             continue;
         }
 
+        // Per-speaker colour (item 6b): this segment's base colour is its
+        // speaker's when colour-by-speaker is on, else the style primary.
+        let seg_color = if style.color_by_speaker {
+            seg.speaker.map(speaker_ass_color)
+        } else {
+            None
+        };
+        let seg_primary = seg_color.as_deref().unwrap_or(&primary);
+
         // Word-highlight karaoke: one event per word, the whole line visible
         // with the current word coloured, so only one word "pops" at a time.
         if karaoke {
@@ -283,7 +305,8 @@ pub fn to_ass(segments: &[Segment], style: &CaptionStyle, play_w: u32, play_h: u
                     if end <= start {
                         continue;
                     }
-                    let text = wrap_highlight(&escaped, i, max, &primary, &hi, &style.emphasis);
+                    // Non-active words use the segment's (speaker) colour.
+                    let text = wrap_highlight(&escaped, i, max, seg_primary, &hi, &style.emphasis);
                     s.push_str(&dialogue(start, end, &text));
                 }
                 continue;
@@ -295,7 +318,13 @@ pub fn to_ass(segments: &[Segment], style: &CaptionStyle, play_w: u32, play_h: u
             .split_whitespace()
             .map(|w| ass_escape(&cased(w, style.uppercase)))
             .collect();
-        s.push_str(&dialogue(seg.start, seg.end, &wrap(&words, max)));
+        let body = wrap(&words, max);
+        // A leading colour override tints the whole line to the speaker colour.
+        let text = match &seg_color {
+            Some(c) => format!("{{\\c{c}&}}{body}"),
+            None => body,
+        };
+        s.push_str(&dialogue(seg.start, seg.end, &text));
     }
 
     s
@@ -346,6 +375,7 @@ mod tests {
             highlight_color: "#45f2f2".into(),
             per_word: false,
             emphasis: "color".into(),
+            color_by_speaker: false,
             outline: 0.0,
             shadow: false,
             boxed: true,
@@ -510,5 +540,27 @@ mod tests {
     fn ass_plain_segment_is_one_event() {
         let out = to_ass(&[seg(0.0, 1.0, "hello world")], &style(), 1920, 1080);
         assert_eq!(out.matches("Dialogue:").count(), 1);
+    }
+
+    #[test]
+    fn ass_colors_each_segment_by_speaker() {
+        let mut a = seg(0.0, 1.0, "hi");
+        a.speaker = Some(0); // palette[0] = #45f2f2 -> &H00F2F245
+        let mut b = seg(1.0, 2.0, "yo");
+        b.speaker = Some(1); // palette[1] = #a974ff -> &H00FF74A9
+        let mut st = style();
+        st.color_by_speaker = true;
+
+        let out = to_ass(&[a, b], &st, 1920, 1080);
+        assert!(out.contains("{\\c&H00F2F245&}HI") || out.contains("{\\c&H00F2F245&}hi"));
+        assert!(out.contains("&H00FF74A9&"));
+    }
+
+    #[test]
+    fn ass_no_speaker_color_when_flag_off() {
+        let mut a = seg(0.0, 1.0, "hi");
+        a.speaker = Some(0);
+        let out = to_ass(&[a], &style(), 1920, 1080); // color_by_speaker = false
+        assert!(!out.contains("\\c&H00F2F245&"));
     }
 }

@@ -48,7 +48,25 @@ case "$(uname -s)" in
       "$EXE.exe"
     ;;
   Darwin)
-    echo "macOS sherpa-onnx diarization sidecar: not yet enabled (follow-up)." >&2
+    # osx universal2 STATIC exe — CI-confirmed self-contained + universal
+    # (arm64 + x86_64). Copy it under all three apple-darwin triple names (like
+    # fetch-whisper.sh) so the universal Tauri build resolves it.
+    MV="${SHERPA_MAC_VERSION:-1.12.40}"
+    URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v$MV/sherpa-onnx-v$MV-osx-universal2-static.tar.bz2"
+    echo "== Fetching $(basename "$URL") =="
+    curl -fL --retry 3 -o "$WORK/sherpa-mac.tar.bz2" "$URL"
+    rm -rf "$WORK/xm" && mkdir -p "$WORK/xm"
+    tar xf "$WORK/sherpa-mac.tar.bz2" -C "$WORK/xm"
+    MFOUND="$(find "$WORK/xm" -name "$EXE" -type f | head -1)"
+    [ -n "$MFOUND" ] || {
+      echo "!! $EXE not found in the macOS archive" >&2
+      exit 1
+    }
+    for triple in aarch64-apple-darwin x86_64-apple-darwin universal-apple-darwin; do
+      cp "$MFOUND" "$BIN_DIR/$EXE-$triple"
+      chmod +x "$BIN_DIR/$EXE-$triple"
+    done
+    echo "  -> $EXE-{aarch64,x86_64,universal}-apple-darwin"
     ;;
   Linux)
     # Local Linux dev only (not a release target).

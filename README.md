@@ -85,6 +85,9 @@ longer; a progress bar and a Cancel button show while it runs.
   style and burn in, skipping transcription entirely
 - **Batch captioning** — queue several videos and caption them all in one pass
   with your chosen style, exporting sidecars or burned-in MP4s to a folder
+- **Speaker labels** — on-device diarization ("who spoke when") tags each caption
+  with a speaker you can rename and reassign, then optionally prefix ("Alice: …")
+  or color captions per speaker. Models download on first use; audio stays local
 - **Caption styles** — six presets (bottom bar, bold social, clean top, neon,
   word highlight, karaoke pop) with controls for font, size, color, outline,
   position, and words-per-line, over a live preview. The **karaoke** styles pop
@@ -211,7 +214,7 @@ Forward (in order):
 3. [x] More caption style presets + per-word emphasis
 4. [x] GPU-accelerated transcription (Metal on macOS, Vulkan on Windows)
 5. [x] Batch captioning of multiple files
-6. [ ] Speaker labels / diarization (heaviest; last)
+6. [x] Speaker labels / diarization (on-device, Metal/Vulkan-free ONNX pipeline)
 
 Horizon (not scheduled): code-signing + notarization, done across the whole
 Smith suite at once.

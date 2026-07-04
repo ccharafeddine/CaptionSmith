@@ -1224,3 +1224,30 @@ windows-latest). REMAINING to fully close item 6:
   - A real in-app end-to-end run on a multi-speaker video (needs the real sherpa
     exe + models locally; this Windows box has a placeholder sidecar).
 README roadmap item 6 stays [ ] until the macOS sidecar lands.
+
+--- item 6 macOS sidecar: wired + validated -----------------------------------
+verify-sherpa-macos.yml on macos-14 => GREEN: the osx universal2 STATIC archive
+(v1.12.40, from the k2-fsa/sherpa-onnx GitHub release — macOS isn't on the HF
+libs host) yields a SELF-CONTAINED, UNIVERSAL (x86_64 + arm64) offline-speaker-
+diarization exe, and a REAL diarization produced turns in the expected format.
+Wired:
+- fetch-sherpa.sh: Darwin branch downloads the osx universal2 static archive,
+  extracts the exe, copies it under aarch64/x86_64/universal-apple-darwin (like
+  fetch-whisper.sh). SHERPA_MAC_VERSION=1.12.40 (GitHub); Windows stays on HF
+  1.12.21 — independent binaries, both CI-proven, same CLI contract.
+- tauri.conf.json: moved the diarization sidecar into BASE externalBin (so
+  macOS + Linux bundle it); tauri.windows.conf.json still lists it (array
+  replace). ci.yml: added it to the Linux placeholder loop. release.yml already
+  runs fetch-sherpa.sh on both platforms.
+VERIFIED locally: cargo clippy -D warnings clean; cargo test 52 passed; (Windows
+build uses the windows config, so the base change is inert there — placeholder
+already present).
+
+=== ITEM 6 COMPLETE (6a + 6b, Windows + macOS) ================================
+Speaker diarization shipped: tested alignment core; the sherpa-onnx sidecar
+bundled on BOTH platforms and CI-proven END TO END (real diarization on
+windows-latest AND macos-14); on-first-use model download; Detect-speakers editor
+(chips, rename, reassign); speaker-prefix export; per-speaker coloring (preview +
+ASS). README roadmap item 6 -> [x]. Post-v1 roadmap items 1-6 all shipped.
+Only unexercised: a full in-app diarization run on a real multi-speaker video
+(needs a release build or the real sidecar dropped into binaries/ locally).

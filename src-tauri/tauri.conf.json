@@ -36,7 +36,8 @@
       "binaries/yt-dlp",
       "binaries/ffmpeg",
       "binaries/ffprobe",
-      "binaries/whisper-cli"
+      "binaries/whisper-cli",
+      "binaries/sherpa-onnx-offline-speaker-diarization"
     ],
     "resources": {
       "resources/models/ggml-base.en.bin": "models/ggml-base.en.bin",

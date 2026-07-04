@@ -54,7 +54,7 @@ jobs:
       - name: Create sidecar / model placeholders
         run: |
           mkdir -p src-tauri/binaries src-tauri/resources/models
-          for b in yt-dlp ffmpeg ffprobe whisper-cli; do
+          for b in yt-dlp ffmpeg ffprobe whisper-cli sherpa-onnx-offline-speaker-diarization; do
             touch "src-tauri/binaries/$b-x86_64-unknown-linux-gnu"
           done
           touch src-tauri/resources/models/ggml-base.en.bin

@@ -1074,3 +1074,23 @@ REMAINING 6a increments:
      pointer state), speaker chips per row, rename + reassign.
   5. Export: speaker-name prefix in sidecar/burn-in.
 Then 6b: per-speaker caption coloring (preview + ASS).
+
+
+--- 6a increment 2: sherpa-onnx discovery (verify-sherpa.yml) -> GREEN ---------
+Ran verify-sherpa.yml on windows-latest. Findings (resolve all the unknowns):
+- The prebuilt STATIC exe `sherpa-onnx-offline-speaker-diarization.exe` is FULLY
+  SELF-CONTAINED (ran alone in an empty dir, printed usage). => bundle ONE file
+  via externalBin, like whisper-cli. No onnxruntime.dll to ship. (The SHARED
+  build needs onnxruntime.dll + sherpa-onnx-c-api/cxx-api + cargs.dll beside it —
+  avoided by using static.)
+- Flags confirmed present: --segmentation.pyannote-model, --embedding.model,
+  --clustering.cluster-threshold (built-in default threshold = 0.5, matches the
+  code; min-duration-on=0.3, min-duration-off=0.5 defaults).
+- Output format confirmed from source: "%.3f -- %.3f speaker_NN" -> parse_turns
+  is correct.
+- Prebuilt libs host: huggingface csukuangfj/sherpa-onnx-libs/win64/<ver>/...;
+  pinned v1.12.21 (static + shared archives exist). Models come from the
+  k2-fsa/sherpa-onnx release tags speaker-segmentation-models /
+  speaker-recongition-models.
+Decision: bundle the STATIC single exe as the diarization sidecar (externalBin),
+download the ONNX models on first use (as scoped).

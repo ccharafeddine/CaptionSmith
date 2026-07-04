@@ -5,7 +5,8 @@
       "binaries/ffmpeg",
       "binaries/ffprobe",
       "binaries/whisper-cli",
-      "binaries/whisper-cli-gpu"
+      "binaries/whisper-cli-gpu",
+      "binaries/sherpa-onnx-offline-speaker-diarization"
     ]
   }
 }

@@ -57,6 +57,44 @@ jobs:
           echo "DLLs living beside the exe (what a shared bundle must ship):"
           ls -1 "$BINDIR"/*.dll || true
 
+      - name: End-to-end — real diarization, assert the output format diarize.rs parses
+        shell: bash
+        run: |
+          set -uxo pipefail
+          BIN="$(find shared -name 'sherpa-onnx-offline-speaker-diarization.exe' -type f | head -1)"
+          BINDIR="$(dirname "$BIN")"
+          export PATH="$BINDIR:$PATH"
+
+          # Models (the same ones the app downloads on first use).
+          curl -fL --retry 3 -o seg.tar.bz2 \
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2"
+          mkdir -p seg && tar xf seg.tar.bz2 -C seg
+          SEG="$(find seg -name 'model.onnx' -type f | head -1)"
+          curl -fL --retry 3 -o embedding.onnx \
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx"
+
+          # A real multi-speaker sample. If it can't be fetched, skip the run
+          # (the binary + flags are already proven above); don't fail the job.
+          if ! curl -fL --retry 3 -o test.wav \
+              "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/0-four-speakers-zh.wav"; then
+            echo "sample wav unavailable — skipping the live run (binary/flags already verified)."
+            exit 0
+          fi
+
+          # Exactly the args diarize.rs builds.
+          "$BIN" \
+            --num-threads=2 \
+            "--segmentation.pyannote-model=$SEG" \
+            --embedding.model=embedding.onnx \
+            --clustering.cluster-threshold=0.5 \
+            test.wav > turns.txt 2> diar.err || true
+          echo "----- stdout (turns) -----"; cat turns.txt; echo "--------------------------"
+          # parse_turns expects lines like "0.031 -- 1.743 speaker_00".
+          if ! grep -qE '^[0-9]+\.[0-9]+ -- [0-9]+\.[0-9]+ speaker_[0-9]+' turns.txt; then
+            echo "::error::no speaker turns in the expected format"; tail -20 diar.err; exit 1
+          fi
+          echo "OK: real diarization produced turns in the format parse_turns expects."
+
       - name: Probe whether the STATIC build's exe is self-contained (informational)
         shell: bash
         continue-on-error: true

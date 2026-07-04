@@ -82,6 +82,7 @@ jobs:
           bash scripts/fetch-ffmpeg.sh
           bash scripts/fetch-ytdlp.sh
           bash scripts/fetch-whisper.sh
+          bash scripts/fetch-sherpa.sh
 
       - name: Build app + draft release
         uses: tauri-apps/tauri-action@v0

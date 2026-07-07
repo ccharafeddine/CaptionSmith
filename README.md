@@ -7,9 +7,29 @@
 <p align="center">Add captions to any video — transcribed on your own machine.</p>
 
 <p align="center">
+  <a href="https://github.com/ccharafeddine/CaptionSmith/releases">
+    <img src="https://img.shields.io/github/v/release/ccharafeddine/CaptionSmith?color=a974ff&label=release" alt="Latest release" />
+  </a>
   <a href="https://github.com/ccharafeddine/CaptionSmith/actions/workflows/ci.yml">
     <img src="https://github.com/ccharafeddine/CaptionSmith/actions/workflows/ci.yml/badge.svg" alt="CI" />
   </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0" />
+  </a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-45f2f2" alt="Platforms: macOS and Windows" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/local--first-audio%20never%20leaves%20your%20machine-a974ff" alt="Local-first" />
+  <img src="https://img.shields.io/badge/transcription-whisper.cpp-informational" alt="whisper.cpp" />
+  <img src="https://img.shields.io/badge/GPU-Metal%20%7C%20Vulkan-informational" alt="GPU: Metal and Vulkan" />
+  <img src="https://img.shields.io/badge/built%20with-Tauri%20%2B%20SolidJS-24c8db" alt="Built with Tauri and SolidJS" />
+</p>
+
+<p align="center">
+  <code>captions</code> · <code>subtitles</code> · <code>whisper</code> · <code>speech-to-text</code> ·
+  <code>transcription</code> · <code>on-device</code> · <code>local-first</code> · <code>privacy</code> ·
+  <code>diarization</code> · <code>ffmpeg</code> · <code>tauri</code> · <code>solidjs</code> · <code>rust</code>
 </p>
 
 ---
@@ -184,6 +204,34 @@ re-encoder. The binaries are invoked as separate sidecar processes:
 
 ## Release notes
 
+### v2.0.0
+
+A major update that lands the entire post-v1 roadmap — still 100% on-device, still
+no accounts and no cloud. Everything below runs on your own machine.
+
+- **Settings panel** (gearwheel, top-right): prompt-only update check (never a
+  silent install), Whisper model management, GPU toggle, and theme — all
+  on-device, never any cloud or API keys.
+- **In-app model manager** — download multilingual Whisper models (one model
+  covers ~99 languages) for automatic language detection and
+  **translate-to-English**.
+- **GPU-accelerated transcription** — **Metal** on Apple Silicon and **Vulkan** on
+  Windows, with automatic CPU fallback and an on/off toggle. Speeds up the larger
+  models most.
+- **Bring your own transcript** — import an existing `.srt` or `.vtt` file to
+  style and burn in, skipping transcription entirely.
+- **More caption styles** — six presets (bottom bar, bold social, clean top, neon,
+  word highlight, karaoke pop) plus **per-word emphasis** (recolor, grow, or
+  underline) for the karaoke styles.
+- **Batch captioning** — queue several videos and caption them all in one pass,
+  exporting sidecars or burned-in MP4s to a folder.
+- **Speaker labels** — on-device diarization ("who spoke when") tags each caption
+  with a speaker you can rename and reassign, then optionally prefix ("Alice: …")
+  or color captions per speaker. Diarization models download on first use; audio
+  never leaves the machine.
+- **Insert captions** for non-speech lines like `[laughs]`.
+- **Fix** — captions now render spaces between words correctly in the live preview.
+
 ### v1.0.1
 
 - macOS is now a **universal** build — runs natively on both Apple Silicon and
@@ -201,25 +249,22 @@ re-encoder. The binaries are invoked as separate sidecar processes:
 
 ## Roadmap
 
-Shipped:
+Delivered (all shipped in **v2.0.0** unless noted):
 
-- [x] Universal macOS build (Apple Silicon + Intel)
+- [x] Universal macOS build — Apple Silicon + Intel (v1.0.1)
+- [x] Settings gearwheel + prompt-only update check + model management
 - [x] In-app multilingual model downloader (~99 languages)
+- [x] SRT / VTT import — bring your own transcript, style it, burn it
+- [x] More caption style presets + per-word emphasis
+- [x] GPU-accelerated transcription (Metal on macOS, Vulkan on Windows)
+- [x] Batch captioning of multiple files
+- [x] Speaker labels / diarization (on-device ONNX pipeline)
 - [x] Insert captions for non-speech lines (e.g. `[laughs]`)
-
-Forward (in order):
-
-1. [x] Settings gearwheel + prompt-only update check + model management
-2. [x] SRT / VTT import — bring your own transcript, style it, burn it
-3. [x] More caption style presets + per-word emphasis
-4. [x] GPU-accelerated transcription (Metal on macOS, Vulkan on Windows)
-5. [x] Batch captioning of multiple files
-6. [x] Speaker labels / diarization (on-device, Metal/Vulkan-free ONNX pipeline)
 
 Horizon (not scheduled): code-signing + notarization, done across the whole
 Smith suite at once.
 
-Everything on this list stays on-device. Settings hold update-check, model
+Everything CaptionSmith does stays on-device. Settings hold update-check, model
 management, default caption style, export folder, and theme — never cloud or API
 keys. There is no cloud transcription path and none will be added.
 

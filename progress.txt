@@ -1251,3 +1251,50 @@ windows-latest AND macos-14); on-first-use model download; Detect-speakers edito
 ASS). README roadmap item 6 -> [x]. Post-v1 roadmap items 1-6 all shipped.
 Only unexercised: a full in-app diarization run on a real multi-speaker video
 (needs a release build or the real sidecar dropped into binaries/ locally).
+
+
+=== v2.0.0 RELEASE PREP =======================================================
+
+--- Live-window test finding: caption overlay dropped word spaces -------------
+DONE (fixed live). First real in-app run (npm run tauri dev on this Windows box):
+transcription + editor + styling all worked, but the on-video caption overlay
+rendered every word with NO space between them ("Mygreatestinvention...") while
+the transcript panel showed correct spacing.
+- ROOT CAUSE: CaptionOverlay renders each word in a `.caption-word` span that is
+  `display: inline-block` (required so the active-word "grow" emphasis transform
+  renders). The separating space was emitted INSIDE the span
+  (`{display(tok.text)}{" "}`); CSS trims whitespace at the trailing inner edge of
+  an inline-block box, so every gap vanished. The transcript panel uses plain text
+  (not per-word spans), which is why it looked fine there — an overlay-only bug.
+- FIX (src/components/CaptionOverlay.tsx): moved the space to a sibling text node
+  BETWEEN the spans (`<span>…</span>{" "}` inside a fragment), where inter-element
+  whitespace renders as a real gap and still wraps naturally. Vite HMR applied it
+  live; spacing correct. The burn-in ASS path (subtitles.rs / libass) was never
+  affected — different code path.
+
+--- Bumped 1.0.1 -> 2.0.0 + README/About for the release ----------------------
+DONE. Major bump because v2.0.0 is the first release carrying the WHOLE post-v1
+roadmap (items 1-6: settings/updater/model-mgmt, SRT/VTT import, more presets +
+per-word emphasis, GPU transcription Metal+Vulkan, batch, diarization) — all of
+which landed after the v1.0.1 tag.
+- Version bumped in package.json, package-lock.json (was stale at 1.0.0 -> 2.0.0),
+  src-tauri/Cargo.toml, src-tauri/Cargo.lock, src-tauri/tauri.conf.json.
+- README: added a tag/badge row below the header (release, CI, license, platform,
+  local-first, whisper.cpp, GPU Metal|Vulkan, built-with, plus a topic-tag line);
+  new v2.0.0 release-notes section listing all roadmap features + the spacing fix;
+  reframed Roadmap as "Delivered" (all items shipped, only code-signing on the
+  horizon). Confirmed the macOS-universal claim is real now
+  (build-ffmpeg-macos.sh does the arm64+x86_64 cross-build + lipo).
+- GitHub repo About: refreshed description to reflect the current app and added 20
+  topics (captions, subtitles, whisper, whisper-cpp, speech-to-text, transcription,
+  on-device, local-first, privacy, diarization, speaker-diarization, ffmpeg, tauri,
+  solidjs, rust, video, srt, vtt, desktop-app, cross-platform).
+
+VERIFIED (all gates green at 2.0.0):
+- npm run build (tsc --noEmit + vite) => clean, built as captionsmith@2.0.0.
+- cargo fmt --check => clean; clippy --all-targets -D warnings => clean;
+  cargo test => 52 passed.
+
+RELEASE: pushing the v2.0.0 tag triggers release.yml (releaseDraft: true) ->
+builds the Windows .msi/.exe + macOS universal .dmg and attaches them to a DRAFT
+release. Human step: review the draft + click Publish (CI ~30-40 min).

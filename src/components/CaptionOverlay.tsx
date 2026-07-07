@@ -99,13 +99,15 @@ export default function CaptionOverlay(props: CaptionOverlayProps) {
               <div class="caption-line" classList={{ box: style.box }}>
                 <For each={line}>
                   {(tok) => (
-                    <span
-                      class="caption-word"
-                      classList={{ active: isActiveWord(tok) }}
-                      style={isActiveWord(tok) ? activeWordStyle() : undefined}
-                    >
-                      {display(tok.text)}{" "}
-                    </span>
+                    <>
+                      <span
+                        class="caption-word"
+                        classList={{ active: isActiveWord(tok) }}
+                        style={isActiveWord(tok) ? activeWordStyle() : undefined}
+                      >
+                        {display(tok.text)}
+                      </span>{" "}
+                    </>
                   )}
                 </For>
               </div>

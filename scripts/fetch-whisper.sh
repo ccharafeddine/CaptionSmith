@@ -110,4 +110,18 @@ if [ ! -f "$MODEL_DIR/$MODEL" ]; then
     "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$MODEL"
 fi
 
+# Verify the bundled model against the SHA-256 in its Hugging Face LFS pointer
+# (https://huggingface.co/ggerganov/whisper.cpp/raw/main/ggml-base.en.bin).
+MODEL_SHA256="a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002"
+if command -v sha256sum >/dev/null 2>&1; then
+  ACTUAL="$(sha256sum "$MODEL_DIR/$MODEL" | cut -d' ' -f1)"
+else
+  ACTUAL="$(shasum -a 256 "$MODEL_DIR/$MODEL" | cut -d' ' -f1)"
+fi
+if [ "$ACTUAL" != "$MODEL_SHA256" ]; then
+  echo "ERROR: $MODEL checksum mismatch (expected $MODEL_SHA256, got $ACTUAL)" >&2
+  rm -f "$MODEL_DIR/$MODEL"
+  exit 1
+fi
+
 echo "Done."

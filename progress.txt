@@ -1298,3 +1298,10 @@ VERIFIED (all gates green at 2.0.0):
 RELEASE: pushing the v2.0.0 tag triggers release.yml (releaseDraft: true) ->
 builds the Windows .msi/.exe + macOS universal .dmg and attaches them to a DRAFT
 release. Human step: review the draft + click Publish (CI ~30-40 min).
+
+== SESSION 2026-10-14 (hardening/2026-10) ==
+- Panicking pipe expects (diarize, ffmpeg x2, transcribe, url_import) now return errors; mutex locks in proc.rs/url_import.rs recover from poisoning.
+- Whisper model downloads verify SHA-256 (hashes from HF LFS pointers); fetch-whisper.sh verifies bundled ggml-base.en.bin.
+- New Rust tests: models checksum (3), transcribe failure classification/parsing (5), diarize (2), sidecar resolution (3). 52 -> 65.
+- vitest added (npm test, npm run typecheck), 16 frontend tests. CI frontend job runs typecheck + test + build.
+- NOT done: ClipSmith scraper port into url_import.rs (std::process architecture differs; needs its own pass). Diarization model downloads still unverified (no published hashes pinned yet).

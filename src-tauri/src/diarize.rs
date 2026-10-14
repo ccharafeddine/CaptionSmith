@@ -454,7 +454,11 @@ fn run_diarize(
         let _ = std::fs::remove_file(&wav);
         format!("Failed to start the diarization engine: {e}")
     })?;
-    let stdout = child.stdout.take().expect("piped stdout");
+    let Some(stdout) = child.stdout.take() else {
+        let _ = child.kill();
+        let _ = std::fs::remove_file(&wav);
+        return Err("The diarization engine's output pipe was not available.".into());
+    };
     cancel.set_child(child);
 
     // Turns are printed to stdout, one per line.

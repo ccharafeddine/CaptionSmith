@@ -10,7 +10,7 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
@@ -84,7 +84,12 @@ pub async fn download_url(
 #[tauri::command]
 pub fn cancel_download(state: State<'_, DownloadState>) {
     state.cancel.store(true, Ordering::SeqCst);
-    if let Some(mut child) = state.child.lock().unwrap().take() {
+    if let Some(mut child) = state
+        .child
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .take()
+    {
         let _ = child.kill();
     }
 }
@@ -127,11 +132,13 @@ fn run_download(
         .spawn()
         .map_err(|e| format!("Failed to start yt-dlp: {e}"))?;
 
-    let stdout = child.stdout.take().expect("piped stdout");
-    let stderr = child.stderr.take().expect("piped stderr");
+    let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
+        let _ = child.kill();
+        return Err("yt-dlp's output pipes were not available.".into());
+    };
 
     // Hand the child to shared state so cancel_download can kill it.
-    *child_slot.lock().unwrap() = Some(child);
+    *child_slot.lock().unwrap_or_else(PoisonError::into_inner) = Some(child);
 
     // Drain stderr on a thread: yt-dlp emits both progress and errors here in
     // some builds, so parse it for progress too and keep the text for reporting.
@@ -167,7 +174,10 @@ fn run_download(
 
     // Reap the child (unless cancel_download already took and killed it).
     let status = {
-        let taken = child_slot.lock().unwrap().take();
+        let taken = child_slot
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
         match taken {
             Some(mut ch) => {
                 if cancel.load(Ordering::SeqCst) {

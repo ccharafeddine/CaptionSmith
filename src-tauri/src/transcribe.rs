@@ -519,7 +519,13 @@ fn run_whisper(
             return Err(RunErr::Startup(format!("Failed to start whisper: {e}")));
         }
     };
-    let stderr = child.stderr.take().expect("piped stderr");
+    let Some(stderr) = child.stderr.take() else {
+        let _ = child.kill();
+        cleanup();
+        return Err(RunErr::Startup(
+            "whisper's output pipe was not available.".into(),
+        ));
+    };
     cancel.set_child(child);
 
     let mut tail: Vec<String> = Vec::new();

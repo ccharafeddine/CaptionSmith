@@ -8,7 +8,7 @@
 
 use std::process::Child;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 #[derive(Clone, Default)]
 pub struct Cancellation {
@@ -20,13 +20,22 @@ impl Cancellation {
     /// Clear the flag and forget any prior child. Call at the start of a run.
     pub fn reset(&self) {
         self.flag.store(false, Ordering::SeqCst);
-        let _ = self.child.lock().unwrap().take();
+        let _ = self
+            .child
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
     }
 
     /// Request cancellation and kill the currently registered child, if any.
     pub fn cancel(&self) {
         self.flag.store(true, Ordering::SeqCst);
-        if let Some(mut child) = self.child.lock().unwrap().take() {
+        if let Some(mut child) = self
+            .child
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+        {
             let _ = child.kill();
         }
     }
@@ -37,11 +46,14 @@ impl Cancellation {
 
     /// Register the child that a cancel should kill.
     pub fn set_child(&self, child: Child) {
-        *self.child.lock().unwrap() = Some(child);
+        *self.child.lock().unwrap_or_else(PoisonError::into_inner) = Some(child);
     }
 
     /// Reclaim the child for waiting (None if cancel already took/killed it).
     pub fn take_child(&self) -> Option<Child> {
-        self.child.lock().unwrap().take()
+        self.child
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
     }
 }

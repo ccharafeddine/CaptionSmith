@@ -105,7 +105,10 @@ pub fn extract_to_wav(
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to start ffmpeg: {e}"))?;
-    let stderr = child.stderr.take().expect("piped stderr");
+    let Some(stderr) = child.stderr.take() else {
+        let _ = child.kill();
+        return Err("ffmpeg's output pipe was not available.".into());
+    };
     cancel.set_child(child);
 
     let mut total: Option<f64> = None;
@@ -363,7 +366,11 @@ fn run_burn(
         cleanup();
         format!("Failed to start ffmpeg: {e}")
     })?;
-    let stderr = child.stderr.take().expect("piped stderr");
+    let Some(stderr) = child.stderr.take() else {
+        let _ = child.kill();
+        cleanup();
+        return Err("ffmpeg's output pipe was not available.".into());
+    };
     cancel.set_child(child);
 
     let mut total = if probed_dur > 0.0 {

@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   frontend:
-    name: Frontend (typecheck + build)
+    name: Frontend (typecheck + test + build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +25,10 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
       - run: npm run build
 
   rust:

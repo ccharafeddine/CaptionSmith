@@ -624,4 +624,25 @@ some log line
         assign_speakers(&mut segs, &[]);
         assert!(segs.iter().all(|s| s.speaker.is_none()));
     }
+
+    #[test]
+    fn garbage_output_yields_no_turns() {
+        assert!(parse_turns("").is_empty());
+        assert!(parse_turns("Started\nnot a turn\n1.0 -- x speaker_00\n").is_empty());
+    }
+
+    #[test]
+    fn find_file_searches_nested_dirs() {
+        let root = std::env::temp_dir().join(format!("cs-findfile-{}", std::process::id()));
+        let deep = root.join("a").join("b");
+        std::fs::create_dir_all(&deep).unwrap();
+        std::fs::write(deep.join("model.onnx"), b"x").unwrap();
+        let found = find_file(&root, "model.onnx");
+        let missing = find_file(&root, "other.onnx");
+        let no_dir = find_file(&root.join("nope"), "model.onnx");
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(found, Some(deep.join("model.onnx")));
+        assert_eq!(missing, None);
+        assert_eq!(no_dir, None);
+    }
 }

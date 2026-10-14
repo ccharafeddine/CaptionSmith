@@ -147,6 +147,25 @@ fn is_safe_model_name(name: &str) -> bool {
     !name.is_empty() && name != ".." && !name.contains(['/', '\\'])
 }
 
+/// Turn a non-zero whisper exit into a `RunErr`. The detail is the last stderr
+/// line mentioning an error/failure (or a generic message). No progress => it
+/// died on startup/init (e.g. missing GPU runtime/device): fallback-eligible.
+/// Progress seen => a genuine mid-run failure that must be surfaced.
+fn classify_failure(tail: &[String], progress_seen: bool) -> RunErr {
+    let detail = tail
+        .iter()
+        .rev()
+        .find(|l| l.to_lowercase().contains("error") || l.contains("failed"))
+        .map_or("whisper failed to transcribe the audio.", String::as_str)
+        .trim()
+        .to_string();
+    if progress_seen {
+        RunErr::Failed(detail)
+    } else {
+        RunErr::Startup(detail)
+    }
+}
+
 /// Pull the integer percent from a whisper stderr line "... progress =  45%".
 fn parse_progress(line: &str) -> Option<f64> {
     let idx = line.find("progress =")?;
@@ -566,20 +585,7 @@ fn run_whisper(
     }
     if !status.success() {
         cleanup();
-        let detail = tail
-            .iter()
-            .rev()
-            .find(|l| l.to_lowercase().contains("error") || l.contains("failed"))
-            .cloned()
-            .unwrap_or_else(|| "whisper failed to transcribe the audio.".to_string());
-        let detail = detail.trim().to_string();
-        // No progress => it died on startup/init (missing GPU runtime/device):
-        // fallback-eligible. Progress seen => a genuine mid-run failure.
-        return Err(if progress_seen {
-            RunErr::Failed(detail)
-        } else {
-            RunErr::Startup(detail)
-        });
+        return Err(classify_failure(&tail, progress_seen));
     }
 
     let json = match std::fs::read_to_string(&json_path) {
@@ -670,5 +676,55 @@ mod tests {
         assert_eq!(words[1].text, "Americans.");
         assert_eq!(words[1].start, 0.5);
         assert_eq!(words[1].end, 0.84);
+    }
+
+    #[test]
+    fn startup_failure_is_fallback_eligible() {
+        let tail = vec![
+            "whisper_init: loading model".to_string(),
+            "ggml_vulkan: Error: no device found  ".to_string(),
+            "exiting".to_string(),
+        ];
+        match classify_failure(&tail, false) {
+            RunErr::Startup(d) => assert_eq!(d, "ggml_vulkan: Error: no device found"),
+            _ => panic!("expected Startup"),
+        }
+    }
+
+    #[test]
+    fn mid_run_failure_is_surfaced_with_a_default_message() {
+        match classify_failure(&["progress = 40%".to_string()], true) {
+            RunErr::Failed(d) => assert_eq!(d, "whisper failed to transcribe the audio."),
+            _ => panic!("expected Failed"),
+        }
+        assert!(matches!(classify_failure(&[], false), RunErr::Startup(_)));
+    }
+
+    #[test]
+    fn malformed_whisper_json_is_an_error() {
+        assert!(parse_segments("{not json", false)
+            .unwrap_err()
+            .contains("parse"));
+        assert!(parse_segments(r#"{"result":{}}"#, false)
+            .unwrap_err()
+            .contains("missing transcription"));
+        assert!(parse_segments(r#"{"transcription":[]}"#, true)
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn progress_ignores_unrelated_or_garbled_lines() {
+        assert_eq!(parse_progress("whisper_print_timings: total"), None);
+        assert_eq!(parse_progress("progress = abc%"), None);
+        assert_eq!(parse_progress("progress = 12"), None);
+    }
+
+    #[test]
+    fn model_name_rejects_traversal_variants() {
+        for bad in ["", "..", "../m.bin", "a\\b.bin", "/abs.bin"] {
+            assert!(!is_safe_model_name(bad), "{bad:?}");
+        }
+        assert!(is_safe_model_name("ggml-base.en.bin"));
     }
 }

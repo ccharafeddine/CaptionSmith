@@ -54,7 +54,7 @@ for on-device transcription and a bundled GPL build of
 extraction and the caption burn-in.
 
 <p align="center">
-  <img src="docs/screenshots/desktop-empty.png" width="90%" alt="CaptionSmith start screen in the v2 design" />
+  <img src="docs/screenshots/desktop-app.png" width="90%" alt="CaptionSmith desktop app in the v2 design" />
 </p>
 
 ## Works offline
@@ -69,7 +69,7 @@ Every feature has a local path. You never need an internet connection or an acco
 
 ## Web demo
 
-A browser version lives in the [MediaSmith repo](https://github.com/ccharafeddine/media-smith) (branch `design/v2-impl` until it is merged) under
+A browser version lives in the [MediaSmith repo](https://github.com/ccharafeddine/media-smith) under
 `apps/smiths-web` (page `caption.html`). It runs on ffmpeg.wasm with local files only: no
 server and no uploads. In the browser you can import .srt/.vtt or type captions, edit them, style them (font, size, colour, box or outline, position) over a live preview, and export SRT, VTT or an MP4 with the captions burned in (libass). Only the desktop app has
 Whisper transcription, speaker labels, batch mode, link import. See MediaSmith `docs/web.md` for the build and hosting notes.
@@ -216,6 +216,15 @@ re-encoder. The binaries are invoked as separate sidecar processes:
   license file. No web-font requests are made.
 
 ## Release notes
+
+### v2.1.0
+
+- **Smith v2 design**: a restyled interface with the shared Smith v2 look (new logo, colours, type and controls) that matches ClipSmith, GifSmith and MediaSmith.
+- **Import model file** (Settings > Models): install a `ggml-*.bin` Whisper model you already have. It is recognised by its SHA-256, so the file name doesn't matter and no download is needed.
+- **Verified downloads**: Whisper and speaker-diarization models are checked against their SHA-256 after download, and diarization archives are extracted in-process.
+- **Fewer crashes**: missing pipes and poisoned locks now return errors instead of panicking, and transcription/diarization failures are reported cleanly.
+- **Tests and CI**: frontend unit tests (vitest) and failure-path tests for the Rust side; CI now runs the typecheck and the tests.
+- **Web demo**: a browser version for importing, editing, styling and burning in captions, built for https://caption.chafic.me (see `web/README.md`).
 
 ### v2.0.0
 

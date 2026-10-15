@@ -1,0 +1,4 @@
+/* Web-only tweaks for the browser build. Keep this tiny: the UI is the app's own. */
+
+/* CaptionSmith keeps its export bar along the bottom edge: sit in the top bar instead. */
+body .smith-web-badge { top: 8px; bottom: auto; left: 50%; transform: translateX(-50%); padding: 5px 12px; }

@@ -1,0 +1,38 @@
+{
+  "name": "CaptionSmith",
+  "repo": "https://github.com/ccharafeddine/CaptionSmith",
+  "url": "https://caption.chafic.me/",
+  "title": "CaptionSmith: caption any video in your browser",
+  "description": "Transcribe with Whisper, edit the captions on a timeline, style them and burn them in, entirely in your browser. Nothing is uploaded.",
+  "fonts": true,
+  "assets": [
+    [
+      "web/models/whisper-base_timestamped/config.json",
+      "models/whisper-base_timestamped/config.json"
+    ],
+    [
+      "web/models/whisper-base_timestamped/generation_config.json",
+      "models/whisper-base_timestamped/generation_config.json"
+    ],
+    [
+      "web/models/whisper-base_timestamped/preprocessor_config.json",
+      "models/whisper-base_timestamped/preprocessor_config.json"
+    ],
+    [
+      "web/models/whisper-base_timestamped/tokenizer.json",
+      "models/whisper-base_timestamped/tokenizer.json"
+    ],
+    [
+      "web/models/whisper-base_timestamped/tokenizer_config.json",
+      "models/whisper-base_timestamped/tokenizer_config.json"
+    ],
+    [
+      "web/models/whisper-base_timestamped/onnx/encoder_model_quantized.onnx",
+      "models/whisper-base_timestamped/onnx/encoder_model_quantized.onnx"
+    ],
+    [
+      "web/models/whisper-base_timestamped/onnx/decoder_model_merged_quantized.onnx",
+      "models/whisper-base_timestamped/onnx/decoder_model_merged_quantized.onnx"
+    ]
+  ]
+}

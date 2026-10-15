@@ -24,6 +24,9 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 futures-util = "0.3"
 # SHA-256 verification of downloaded Whisper models.
 sha2 = "0.10"
+# Unpack the diarization segmentation .tar.bz2 in-process (pure-Rust bzip2).
+tar = "0.4"
+bzip2 = "0.6"
 tokio = { version = "1", features = ["fs", "io-util"] }
 
 [profile.release]

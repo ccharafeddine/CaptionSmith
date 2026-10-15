@@ -38,6 +38,10 @@ const EMB_MODEL: &str = "embedding.onnx";
 // embedding model is a direct .onnx.
 const SEG_ARCHIVE_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-segmentation-models/sherpa-onnx-pyannote-segmentation-3-0.tar.bz2";
 const EMB_URL: &str = "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k.onnx";
+// SHA-256 of the two downloads (computed 2026-10-14). A truncated, corrupted
+// or swapped file is discarded instead of installed.
+const SEG_ARCHIVE_SHA256: &str = "24615ee884c897d9d2ba09bb4d30da6bb1b15e685065962db5b02e76e4996488";
+const EMB_SHA256: &str = "1a331345f04805badbb495c775a6ddffcdd1a732567d5ec8b3d5749e3c7a5e4b";
 
 /// Managed state for diarization: a cancel handle for the in-flight run, and a
 /// separate flag for cancelling the model download.
@@ -221,6 +225,7 @@ pub async fn download_diarization_models(
             &client,
             &cancel,
             SEG_ARCHIVE_URL,
+            SEG_ARCHIVE_SHA256,
             &archive,
             "segmentation model",
             1,
@@ -238,6 +243,7 @@ pub async fn download_diarization_models(
             &client,
             &cancel,
             EMB_URL,
+            EMB_SHA256,
             &emb_dest,
             "embedding model",
             2,
@@ -250,15 +256,19 @@ pub async fn download_diarization_models(
 
 /// Stream `url` to `dest` via a `<dest>.part` temp (so a partial download is
 /// never mistaken for a real model), emitting progress and honouring cancel.
+#[allow(clippy::too_many_arguments)]
 async fn stream_to_file(
     app: &AppHandle,
     client: &reqwest::Client,
     cancel: &AtomicBool,
     url: &str,
+    sha256: &str,
     dest: &Path,
     label: &str,
     step: u32,
 ) -> Result<(), String> {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
     let part = {
         let mut s = dest.as_os_str().to_owned();
         s.push(".part");
@@ -289,6 +299,7 @@ async fn stream_to_file(
             return Err("cancelled".into());
         }
         let chunk = chunk.map_err(|e| format!("download error: {e}"))?;
+        hasher.update(&chunk);
         out.write_all(&chunk)
             .await
             .map_err(|e| format!("write error: {e}"))?;
@@ -319,6 +330,13 @@ async fn stream_to_file(
 
     out.flush().await.map_err(|e| format!("flush error: {e}"))?;
     drop(out);
+    let got = hex(&hasher.finalize());
+    if got != sha256 {
+        let _ = tokio::fs::remove_file(&part).await;
+        return Err(format!(
+            "The {label} download was corrupted (checksum mismatch). Please try again."
+        ));
+    }
     tokio::fs::rename(&part, dest)
         .await
         .map_err(|e| format!("could not finalize download: {e}"))?;
@@ -336,44 +354,53 @@ async fn stream_to_file(
     Ok(())
 }
 
-/// Extract `model.onnx` from the segmentation .tar.bz2 to `dest`, using the
-/// system `tar` (bsdtar on Windows 10+/macOS both handle bzip2) so we don't need
-/// a Rust bzip2/tar decoder.
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Extract `model.onnx` from the segmentation .tar.bz2 to `dest`, in-process
+/// (pure-Rust bzip2 + tar). The system `tar.exe` on some Windows installs
+/// can't run bzip2 ("Can't initialize filter"), which broke this step.
 async fn extract_model_onnx(archive: &Path, dest: &Path) -> Result<(), String> {
     let archive = archive.to_path_buf();
     let dest = dest.to_path_buf();
-    tauri::async_runtime::spawn_blocking(move || {
-        let tmp = archive
-            .parent()
-            .unwrap_or_else(|| Path::new("."))
-            .join("seg-extract");
-        let _ = std::fs::remove_dir_all(&tmp);
-        std::fs::create_dir_all(&tmp).map_err(|e| format!("temp dir: {e}"))?;
+    tauri::async_runtime::spawn_blocking(move || extract_model_onnx_sync(&archive, &dest))
+        .await
+        .map_err(|e| format!("task join: {e}"))?
+}
 
-        let mut cmd = std::process::Command::new("tar");
-        cmd.arg("xf").arg(&archive).arg("-C").arg(&tmp);
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            cmd.creation_flags(0x0800_0000);
+fn extract_model_onnx_sync(archive: &Path, dest: &Path) -> Result<(), String> {
+    let f = std::fs::File::open(archive).map_err(|e| format!("open archive: {e}"))?;
+    let mut ar = tar::Archive::new(bzip2::read::BzDecoder::new(std::io::BufReader::new(f)));
+    let entries = ar
+        .entries()
+        .map_err(|e| format!("could not read the segmentation model archive: {e}"))?;
+    for entry in entries {
+        let mut entry =
+            entry.map_err(|e| format!("could not read the segmentation model archive: {e}"))?;
+        let is_model = entry
+            .path()
+            .ok()
+            .and_then(|p| p.file_name().map(|n| n == "model.onnx"))
+            .unwrap_or(false);
+        if is_model {
+            let mut part = dest.as_os_str().to_owned();
+            part.push(".part");
+            let part = PathBuf::from(part);
+            let mut out = std::fs::File::create(&part)
+                .map_err(|e| format!("could not save the model: {e}"))?;
+            std::io::copy(&mut entry, &mut out)
+                .map_err(|e| format!("could not save the model: {e}"))?;
+            drop(out);
+            return std::fs::rename(&part, dest)
+                .map_err(|e| format!("could not save the model: {e}"));
         }
-        let status = cmd
-            .status()
-            .map_err(|e| format!("could not run tar to extract the model: {e}"))?;
-        if !status.success() {
-            return Err("could not extract the segmentation model archive.".into());
-        }
-
-        let found = find_file(&tmp, "model.onnx").ok_or("model.onnx not found in the archive")?;
-        std::fs::copy(&found, &dest).map_err(|e| format!("could not save the model: {e}"))?;
-        let _ = std::fs::remove_dir_all(&tmp);
-        Ok(())
-    })
-    .await
-    .map_err(|e| format!("task join: {e}"))?
+    }
+    Err("model.onnx not found in the archive".into())
 }
 
 /// Recursively find the first file named `name` under `dir`.
+#[cfg(test)]
 fn find_file(dir: &Path, name: &str) -> Option<PathBuf> {
     for entry in std::fs::read_dir(dir).ok()?.flatten() {
         let p = entry.path();
@@ -629,6 +656,38 @@ some log line
     fn garbage_output_yields_no_turns() {
         assert!(parse_turns("").is_empty());
         assert!(parse_turns("Started\nnot a turn\n1.0 -- x speaker_00\n").is_empty());
+    }
+
+    #[test]
+    fn extracts_model_from_tar_bz2_in_process() {
+        use std::io::Write;
+        let d = std::env::temp_dir().join(format!("cs-bz-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let arc = d.join("seg.tar.bz2");
+        {
+            let f = std::fs::File::create(&arc).unwrap();
+            let enc = bzip2::write::BzEncoder::new(f, bzip2::Compression::fast());
+            let mut t = tar::Builder::new(enc);
+            for (name, body) in [("p/README.md", &b"hi"[..]), ("p/model.onnx", &b"ONNX"[..])] {
+                let mut h = tar::Header::new_gnu();
+                h.set_size(body.len() as u64);
+                h.set_mode(0o644);
+                h.set_cksum();
+                t.append_data(&mut h, name, body).unwrap();
+            }
+            t.into_inner().unwrap().finish().unwrap().flush().unwrap();
+        }
+        let dest = d.join("segmentation.onnx");
+        extract_model_onnx_sync(&arc, &dest).unwrap();
+        let got = std::fs::read(&dest).unwrap();
+        std::fs::write(&arc, b"junk").unwrap();
+        let bad = extract_model_onnx_sync(&arc, &d.join("x.onnx"));
+        let _ = std::fs::remove_dir_all(&d);
+        assert_eq!(got, b"ONNX");
+        assert!(bad.is_err());
+        assert_eq!(hex(&[0, 171, 255]), "00abff");
+        assert_eq!(SEG_ARCHIVE_SHA256.len(), 64);
+        assert_eq!(EMB_SHA256.len(), 64);
     }
 
     #[test]

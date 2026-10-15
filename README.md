@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="src/assets/captionsmith-icon.svg" width="128" alt="CaptionSmith" />
+  <img src="docs/brand/captionsmith.svg" width="128" alt="CaptionSmith logo" />
 </p>
 
 <h1 align="center">CaptionSmith</h1>
 
-<p align="center">Add captions to any video — transcribed on your own machine.</p>
+<p align="center">Caption any video, transcribed on your own machine.</p>
 
 <p align="center">
   <a href="https://github.com/ccharafeddine/CaptionSmith/releases">
@@ -53,16 +53,29 @@ for on-device transcription and a bundled GPL build of
 [FFmpeg](https://ffmpeg.org) (including `libx264` and `libass`) for audio
 extraction and the caption burn-in.
 
-<p align="center"><b>Load a video</b><br />
-  <img src="docs/screenshot-1-load.png" width="90%" alt="A video loaded in CaptionSmith, ready to transcribe" />
+<p align="center">
+  <img src="docs/screenshots/desktop-empty.png" width="90%" alt="CaptionSmith start screen in the v2 design" />
 </p>
 
-<p align="center"><b>Transcribe on-device, then edit the transcript</b><br />
-  <img src="docs/screenshot-2-transcript.png" width="90%" alt="CaptionSmith showing the transcript with a caption previewed over the video" />
-</p>
+## Works offline
 
-<p align="center"><b>Style the captions over a live preview</b><br />
-  <img src="docs/screenshot-3-style.png" width="90%" alt="CaptionSmith's style panel with presets and controls" />
+Every feature has a local path. You never need an internet connection or an account.
+
+- Transcription runs with whisper.cpp and the bundled base model. No audio is ever uploaded.
+- **Import model file…** (in Settings > Models) installs a larger `ggml-*.bin` you already have, for example one copied from another machine. The file is recognised by its SHA-256, so its name doesn't matter. Downloading a model is optional.
+- SRT/VTT import and export, styling and burn-in are all local.
+- Link import is optional and is the only other feature that uses the network.
+- Fonts (Inter, Syne) and icons ship inside the app. Nothing loads from a CDN.
+
+## Web demo
+
+A browser version lives in the [MediaSmith repo](https://github.com/ccharafeddine/media-smith) (branch `design/v2-impl` until it is merged) under
+`apps/smiths-web` (page `caption.html`). It runs on ffmpeg.wasm with local files only: no
+server and no uploads. In the browser you can import .srt/.vtt or type captions, edit them, style them (font, size, colour, box or outline, position) over a live preview, and export SRT, VTT or an MP4 with the captions burned in (libass). Only the desktop app has
+Whisper transcription, speaker labels, batch mode, link import. See MediaSmith `docs/web.md` for the build and hosting notes.
+
+<p align="center">
+  <img src="docs/screenshots/web-demo.png" width="90%" alt="CaptionSmith web demo" />
 </p>
 
 ## How captions work

@@ -1,5 +1,6 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import {
@@ -89,6 +90,31 @@ export default function ModelManager(props: ModelManagerProps) {
 
   const cancel = () => invoke("cancel_model_download");
 
+  // Offline path: install a ggml model the user already has (copied from
+  // another machine, a USB stick, etc.). It's identified by checksum.
+  const [importing, setImporting] = createSignal(false);
+  const importFile = async () => {
+    if (downloading() || importing()) return;
+    setError("");
+    const path = await open({
+      multiple: false,
+      filters: [{ name: "Whisper model", extensions: ["bin"] }],
+    });
+    if (typeof path !== "string") return;
+    setImporting(true);
+    props.onBusyChange?.(true);
+    try {
+      const name = await invoke<string>("import_model", { path });
+      await loadModels();
+      setModelName(name);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setImporting(false);
+      props.onBusyChange?.(false);
+    }
+  };
+
   const remove = async (file: string) => {
     try {
       await invoke("delete_model", { file });
@@ -103,8 +129,8 @@ export default function ModelManager(props: ModelManagerProps) {
     <>
       <p class="modal-intro">
         A multilingual model unlocks other languages and translate-to-English —
-        one model covers ~99 languages. Downloads run on your machine and stay
-        local. Larger = more accurate but slower.
+        one model covers ~99 languages. Downloads (optional) run once and stay
+        local; the bundled model works offline. Larger = more accurate but slower.
       </p>
 
       <Show when={props.embedded}>
@@ -182,6 +208,18 @@ export default function ModelManager(props: ModelManagerProps) {
           )}
         </For>
       </ul>
+
+      <div class="model-import">
+        <button
+          class="ghost-btn tiny-btn"
+          type="button"
+          disabled={!!downloading() || importing()}
+          onClick={importFile}
+        >
+          {importing() ? "Checking…" : "Import model file…"}
+        </button>
+        <span>Already have a ggml-*.bin? Install it without the internet.</span>
+      </div>
 
       <Show when={error()}>
         <p class="model-error">{error()}</p>

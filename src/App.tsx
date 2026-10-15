@@ -13,6 +13,7 @@ import BatchPanel from "./components/BatchPanel";
 import { loadModels, setSource, transcript } from "./transcription";
 import { resetDiarization } from "./diarize";
 import { silentStartupCheck, updateAvailable } from "./updater";
+import Wordmark from "./smith/Wordmark";
 
 const VIDEO_EXTENSIONS = ["mp4", "mov", "mkv", "webm", "avi", "m4v"];
 
@@ -157,37 +158,31 @@ export default function App() {
 
   return (
     <div class="app" classList={{ "is-dragging": dragging() }}>
-      <header class="topbar">
-        <div class="topbar-side">
-          <button
-            class="ghost-btn"
-            type="button"
-            onClick={() => setShowBatch(true)}
-          >
-            Batch
+      <header class="topbar sm-topbar">
+        <Wordmark />
+        <span class="smith-vsep" />
+        <button class="sm-btn sm-btn--sm sm-btn--ghost" type="button" onClick={() => setShowBatch(true)}>
+          Batch
+        </button>
+        <Show when={video()}>
+          <button class="sm-btn sm-btn--sm sm-btn--ghost" type="button" onClick={clearVideo}>
+            Clear
           </button>
-        </div>
-        <div class="brand">
-          <span class="brand-mark">Caption</span>
-          <span class="brand-mark brand-accent">Smith</span>
-        </div>
-        <div class="topbar-side topbar-right">
-          <Show when={video()}>
-            <button class="ghost-btn" type="button" onClick={clearVideo}>
-              Clear
-            </button>
-          </Show>
-          <button
-            class="icon-btn settings-btn"
-            classList={{ "has-update": updateAvailable() }}
-            type="button"
-            onClick={() => setShowSettings(true)}
-            aria-label="Settings"
-            title="Settings"
-          >
-            <GearGlyph />
-          </button>
-        </div>
+        </Show>
+        <span class="smith-grow" />
+        <span class="sm-chip" title="Transcription runs on this computer with a local model; nothing is uploaded">
+          <i class="smith-dot" /> Works offline
+        </span>
+        <button
+          class="icon-btn settings-btn"
+          classList={{ "has-update": updateAvailable() }}
+          type="button"
+          onClick={() => setShowSettings(true)}
+          aria-label="Settings"
+          title="Settings"
+        >
+          <GearGlyph />
+        </button>
       </header>
 
       <main class="main">
@@ -236,33 +231,39 @@ export default function App() {
     return (
       <div class="empty">
         <Show when={!importing()} fallback={<DownloadingPanel />}>
-          <div class="dropzone" onClick={pickFile}>
-            <div class="dropzone-inner">
+          <div class="sm-panel smith-drop">
+            <div class="sm-empty__art" aria-hidden="true">
               <CaptionGlyph />
-              <p class="dropzone-title">Drop a video here</p>
-              <p class="dropzone-sub">
-                or <span class="link">browse</span> to open a file
-              </p>
-              <p class="dropzone-formats">
-                {VIDEO_EXTENSIONS.map((e) => `.${e}`).join("  ")}
-              </p>
             </div>
-          </div>
-
-          <div class="url-bar">
-            <input
-              class="url-input"
-              type="text"
-              placeholder="or paste a video URL (YouTube and other sites)"
-              value={url()}
-              onInput={(e) => setUrl(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void importUrl();
-              }}
-            />
-            <button class="primary-btn" type="button" onClick={importUrl}>
-              Import
+            <h3 class="smith-drop-title">Caption a video</h3>
+            <p class="smith-drop-sub">
+              Transcribe on this computer, style the captions and export SRT, VTT or a video with them burned in.
+            </p>
+            <button class="sm-btn sm-btn--primary sm-btn--lg" type="button" onClick={pickFile}>
+              Open video…
             </button>
+            <p class="smith-drop-formats">
+              {VIDEO_EXTENSIONS.map((e) => e.toUpperCase()).join(" · ")} · or drop a file anywhere
+            </p>
+            <div class="smith-or">
+              <span>or paste a link · optional, needs internet</span>
+            </div>
+            <div class="url-row">
+              <input
+                class="url-input"
+                type="text"
+                placeholder="https://…"
+                aria-label="Video link"
+                value={url()}
+                onInput={(e) => setUrl(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void importUrl();
+                }}
+              />
+              <button class="sm-btn" type="button" onClick={importUrl} disabled={!url().trim()}>
+                Fetch
+              </button>
+            </div>
           </div>
 
           <Show when={error()}>

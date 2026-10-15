@@ -4,7 +4,9 @@
 // this is what unlocks the Language picker + Translate-to-English in the UI.
 //
 // This is the only feature besides URL import that touches the network, and
-// it's a one-time per-model fetch (README-sanctioned). Downloads are restricted
+// it's a one-time per-model fetch (README-sanctioned). It is optional: a base
+// model ships with the app, and `import_model` installs a model file the user
+// already has, fully offline. Downloads are restricted
 // to an allowlist of known ggml filenames — never arbitrary URLs.
 
 use std::path::PathBuf;
@@ -235,6 +237,48 @@ pub async fn download_model(
     Ok(())
 }
 
+/// Identify a model file by its SHA-256 alone: the allowlisted name whose
+/// published digest matches, or None. Name on disk doesn't matter, so a model
+/// copied from another machine or a USB stick installs even if it was renamed.
+fn name_for_digest(digest: &[u8]) -> Option<&'static str> {
+    let hex = to_hex(digest);
+    SHA256.iter().find(|(_, h)| *h == hex).map(|(f, _)| *f)
+}
+
+/// Hash `src`, and if it is a known ggml model copy it into `dir` under its
+/// canonical name (via a .part file, so a failed copy never looks installed).
+fn import_into(dir: &std::path::Path, src: &std::path::Path) -> Result<&'static str, String> {
+    use std::io::Read;
+    let mut f = std::fs::File::open(src).map_err(|e| format!("could not open file: {e}"))?;
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 1 << 20];
+    loop {
+        let n = f.read(&mut buf).map_err(|e| format!("read error: {e}"))?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    let name = name_for_digest(&hasher.finalize()).ok_or(
+        "That file isn't one of the supported Whisper models (base, small, medium, large-v3-turbo). Its checksum didn't match.",
+    )?;
+    let part = dir.join(format!("{name}.part"));
+    std::fs::copy(src, &part).map_err(|e| format!("could not copy model: {e}"))?;
+    std::fs::rename(&part, dir.join(name)).map_err(|e| format!("could not finalize model: {e}"))?;
+    Ok(name)
+}
+
+/// Offline path for models: install a ggml file the user already has on disk.
+/// Returns the canonical model name so the UI can select it.
+#[tauri::command]
+pub async fn import_model(app: AppHandle, path: String) -> Result<String, String> {
+    let dir = models_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || import_into(&dir, std::path::Path::new(&path)))
+        .await
+        .map_err(|e| format!("import task failed: {e}"))?
+        .map(str::to_string)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -285,6 +329,30 @@ mod tests {
         let err = verify_digest("ggml-base.bin", &empty).unwrap_err();
         assert!(err.contains("checksum"));
         assert!(verify_digest("not-a-model.bin", &empty).is_err());
+    }
+
+    #[test]
+    fn import_rejects_files_that_are_not_known_models() {
+        let tmp = std::env::temp_dir().join(format!("cs-import-{}", std::process::id()));
+        std::fs::create_dir_all(&tmp).unwrap();
+        let src = tmp.join("ggml-base.bin");
+        std::fs::write(&src, b"not a model").unwrap();
+        let out = tmp.join("models");
+        std::fs::create_dir_all(&out).unwrap();
+        assert!(import_into(&out, &src).is_err());
+        assert!(std::fs::read_dir(&out).unwrap().next().is_none());
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn digest_lookup_names_known_models_only() {
+        let base = SHA256[0].1;
+        let bytes: Vec<u8> = (0..base.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&base[i..i + 2], 16).unwrap())
+            .collect();
+        assert_eq!(name_for_digest(&bytes), Some("ggml-base.bin"));
+        assert_eq!(name_for_digest(&[0u8; 32]), None);
     }
 
     #[test]

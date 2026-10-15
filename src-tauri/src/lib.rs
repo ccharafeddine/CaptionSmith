@@ -62,6 +62,7 @@ pub fn run() {
             models::cancel_model_download,
             models::delete_model,
             models::models_folder,
+            models::import_model,
             updater::check_for_update,
             updater::open_release_page,
             diarize::diarize,

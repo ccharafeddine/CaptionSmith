@@ -14,3 +14,13 @@ SMITH_SITE=caption npm run build -w @mediasmith/smiths-web
 ```
 
 then copy `apps/smiths-web/dist-site/caption/` here. See `docs/hosting.md` in MediaSmith for details.
+
+## Building for another domain
+
+The only domain in the build is in the canonical, `og:url`, `og:image` and `twitter:image` tags of `index.html` and `404.html`. They default to https://caption.chafic.me/. To build for another domain, set `SMITH_SITE_URL` to its public URL (absolute `http(s)`; it must still be the root of the domain):
+
+```
+SMITH_SITE=caption SMITH_SITE_URL=https://captions.example.com npm run build -w @mediasmith/smiths-web
+```
+
+See "Building for another domain" in MediaSmith `docs/hosting.md`.

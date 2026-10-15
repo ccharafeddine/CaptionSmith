@@ -295,3 +295,7 @@ keys. There is no cloud transcription path and none will be added.
 [GPL-3.0](LICENSE) © Chafic Charafeddine. Bundled FFmpeg is GPL (with `libx264`),
 as noted above; whisper.cpp, the ggml models, and libass are permissively
 licensed.
+
+## Web demo
+
+A standalone static build for https://caption.chafic.me/ is in [`web/dist/`](web/dist). See [`web/README.md`](web/README.md) for the required headers and how to rebuild it.

@@ -27,3 +27,6 @@ Thumbs.db
 
 # Local throwaway test fixtures
 /sample-subtitles/
+
+# Standalone web build for caption.chafic.me (see web/README.md)
+!web/dist/

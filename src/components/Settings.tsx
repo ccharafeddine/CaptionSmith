@@ -1,4 +1,5 @@
 import { createSignal, onCleanup, onMount, Show } from "solid-js";
+import { isTauri } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 
 import ModelManager from "./ModelManager";
@@ -79,7 +80,8 @@ export default function Settings(props: SettingsProps) {
           </div>
         </section>
 
-        {/* Updates */}
+        {/* Updates: desktop-only; the web demo always serves the latest build. */}
+        <Show when={isTauri()}>
         <section class="settings-section">
           <h3 class="settings-heading">Updates</h3>
 
@@ -132,6 +134,7 @@ export default function Settings(props: SettingsProps) {
             <span>Check for updates on startup</span>
           </label>
         </section>
+        </Show>
 
         {/* Transcription */}
         <section class="settings-section">

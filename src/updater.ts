@@ -5,7 +5,7 @@
 // prompt-only, matching the local-first promise.
 
 import { createSignal } from "solid-js";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 
 export type UpdateInfo = {
   current: string;
@@ -45,7 +45,8 @@ export function updateAvailable(): boolean {
 
 /** User-initiated check from Settings: surfaces every outcome, errors included. */
 export async function checkForUpdate(): Promise<void> {
-  if (checkState() === "checking") return;
+  // Updates are a desktop concern: the web demo is always the latest build.
+  if (!isTauri() || checkState() === "checking") return;
   setCheckState("checking");
   setCheckError("");
   try {
@@ -61,7 +62,7 @@ export async function checkForUpdate(): Promise<void> {
 /** Silent check run once at mount when the toggle is on. Only ever flips to
  *  "available"; a failure (e.g. offline) stays quiet so launch isn't noisy. */
 export async function silentStartupCheck(): Promise<void> {
-  if (!checkOnStartupEnabled()) return;
+  if (!isTauri() || !checkOnStartupEnabled()) return;
   try {
     const info = await invoke<UpdateInfo>("check_for_update");
     setUpdateInfo(info);

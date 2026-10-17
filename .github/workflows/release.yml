@@ -52,7 +52,7 @@ jobs:
       # and CMake. windows-latest already ships CMake + MSVC.
       - name: Install macOS build deps
         if: matrix.platform == 'macos-14'
-        run: brew install nasm pkg-config cmake meson ninja
+        run: brew install nasm pkg-config cmake meson ninja autoconf automake libtool
 
       # The Windows GPU (Vulkan) whisper sidecar needs the Vulkan SDK at build
       # time (glslc + headers + vulkan-1.lib). fetch-whisper.sh builds the GPU
